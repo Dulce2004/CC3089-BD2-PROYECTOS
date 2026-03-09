@@ -1,6 +1,6 @@
 # Proyecto BD2 — API REST de Gestión de Restaurantes y Pedidos
 
-API REST desarrollada en **Go** que simula un sistema de delivery/pedidos de restaurantes. Permite registrar usuarios, consultar restaurantes, crear órdenes, dejar reseñas y consultar analíticas. La base de datos utilizada es **MongoDB Atlas** y el framework HTTP es **Gin**.
+API REST desarrollada en **Go** que simula un sistema de delivery/pedidos de restaurantes. Permite registrar usuarios, consultar restaurantes, crear órdenes, dejar reseñas, consultar analíticas, gestionar archivos con GridFS e insertar datos masivos. La base de datos utilizada es **MongoDB Atlas** y el framework HTTP es **Gin**.
 
 ---
 
@@ -8,7 +8,7 @@ API REST desarrollada en **Go** que simula un sistema de delivery/pedidos de res
 
 | Tecnología | Versión | Uso |
 |---|---|---|
-| Go | 1.26.1 | Lenguaje principal |
+| Go | 1.21+ | Lenguaje principal |
 | Gin | v1.12.0 | Framework HTTP / enrutamiento |
 | MongoDB Go Driver | v1.17.9 | Conexión y operaciones con MongoDB |
 | MongoDB Atlas | — | Base de datos en la nube |
@@ -39,20 +39,24 @@ Proyecto-BD2/
 │   ├── restaurante_service.go# Lógica de negocio para restaurantes
 │   ├── orden_service.go      # Lógica de negocio para órdenes
 │   ├── resena_service.go     # Lógica con transacción para reseñas
-│   └── analytics_service.go  # Aggregation pipelines de analítica
+│   ├── analytics_service.go  # Aggregation pipelines de analítica
+│   ├── archivo_service.go    # Subida y descarga de archivos con GridFS
+│   └── bulk_service.go       # Generación masiva de órdenes con BulkWrite
 │
 ├── handlers/
 │   ├── usuario_handler.go    # Handler HTTP para usuarios
 │   ├── restaurante_handler.go# Handler HTTP para restaurantes
 │   ├── orden_handler.go      # Handler HTTP para órdenes
 │   ├── resena_handler.go     # Handler HTTP para reseñas
-│   └── analytics_handler.go  # Handler HTTP para analíticas
+│   ├── analytics_handler.go  # Handler HTTP para analíticas
+│   ├── archivo_handler.go    # Handler HTTP para archivos (GridFS)
+│   └── bulk_handler.go       # Handler HTTP para inserción masiva
 │
 ├── routes/
 │   └── routes.go             # Registro de todas las rutas HTTP
 │
 └── utils/
-    └── bulk.go               # Utilidad para inserción masiva de órdenes
+    └── bulk.go               # Utilidad auxiliar para inserción masiva de órdenes
 ```
 
 ---
@@ -110,14 +114,56 @@ El servidor arranca en `http://localhost:8080`.
 
 ## Endpoints disponibles
 
+### Usuarios
+
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | `POST` | `/usuarios` | Crear un nuevo usuario |
+| `PUT` | `/usuarios/:id/direcciones` | Agregar una dirección al array de un usuario (`$push`) |
+
+### Restaurantes
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
 | `GET` | `/restaurantes` | Obtener todos los restaurantes |
+| `GET` | `/restaurantes/search?categoria=pizza&limit=5&skip=0` | Búsqueda avanzada con filtro, sort, skip, limit y proyección |
+| `GET` | `/restaurantes/categorias` | Obtener lista de categorías únicas (`distinct`) |
+
+### Órdenes
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
 | `POST` | `/ordenes` | Crear una nueva orden |
+| `PUT` | `/ordenes/estado-masivo` | Actualizar el estado de múltiples órdenes a la vez |
+| `DELETE` | `/ordenes/:id` | Eliminar una orden por ID |
+| `DELETE` | `/ordenes/masivo?estado=cancelada` | Eliminar múltiples órdenes por estado |
+| `GET` | `/ordenes/count?estado=pendiente` | Contar órdenes (filtro opcional por estado) |
+
+### Reseñas
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
 | `POST` | `/resenas` | Crear una reseña (con transacción) |
-| `GET` | `/analytics/top-platillos` | Top 5 platillos más pedidos |
-| `GET` | `/analytics/top-usuarios` | Top 10 usuarios que más han gastado |
+
+### Analíticas
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/analytics/top-platillos` | Top 5 platillos más pedidos (aggregation pipeline) |
+| `GET` | `/analytics/top-usuarios` | Top 10 usuarios que más han gastado (aggregation pipeline) |
+
+### Archivos (GridFS)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/archivos` | Subir un archivo (multipart/form-data, campo `file`) |
+| `GET` | `/archivos/:id` | Descargar un archivo por su ID |
+
+### Operaciones Masivas
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/bulk/ordenes?cantidad=50000` | Generar órdenes ficticias masivas con BulkWrite (máx. 100,000) |
 
 ---
 
@@ -198,7 +244,7 @@ Orden
 ├── UsuarioID     (ObjectID)    — Referencia al usuario que realizó el pedido
 ├── RestauranteID (ObjectID)    — Referencia al restaurante
 ├── Items         ([]ItemOrden) — Lista de artículos pedidos
-├── Estado        (string)      — Estado del pedido ("pendiente", "entregada", etc.)
+├── Estado        (string)      — Estado del pedido ("pendiente", "en camino", "entregada", "cancelada")
 ├── Total         (float64)     — Total calculado automáticamente
 ├── FechaPedido   (time.Time)   — Fecha/hora del pedido
 ├── Direccion     (Direccion)   — Dirección de entrega
@@ -250,21 +296,23 @@ Contiene toda la lógica de negocio. Cada función accede a MongoDB a través de
 - **`CreateUsuario(usuario)`** — Asigna `FechaRegistro = time.Now()` antes de insertar el documento en la colección `usuarios`.
 - **`GetUsuarios()`** — Retorna todos los usuarios de la colección con `Find(ctx, bson.M{})`.
 - **`GetUsuarioByID(id)`** — Busca un usuario por su `ObjectID` convertido desde string hexadecimal.
+- **`AgregarDireccionUsuario(usuarioID, direccion)`** — Usa `$push` para agregar una nueva dirección al array `direcciones` del usuario sin reemplazar las existentes.
 
 #### `restaurante_service.go`
 
 - **`CreateRestaurante(restaurante)`** — Asigna `FechaCreacion = time.Now()` e inserta en `restaurantes`.
 - **`GetRestaurantes()`** — Retorna todos los restaurantes.
 - **`GetRestauranteByID(id)`** — Busca un restaurante por ID.
+- **`BuscarRestaurantesAvanzado(categoria, limit, skip)`** — Búsqueda con filtro opcional por categoría, ordenada por `calificacion_promedio` descendente, con paginación (skip/limit) y proyección (solo devuelve `nombre`, `calificacion_promedio` y `categorias`).
+- **`ObtenerCategoriasUnicas()`** — Ejecuta `Distinct` sobre el campo `categorias` para devolver los valores únicos disponibles.
 
 #### `orden_service.go`
 
-- **`CreateOrden(orden)`** — Antes de insertar, calcula automáticamente el **total** sumando `cantidad × precio_unitario` de cada item. Además asigna:
-  - `FechaPedido = time.Now()`
-  - `Estado = "pendiente"`
-  - `Resenado = false`
-
-  El cliente solo necesita enviar los items; el servidor se encarga del resto.
+- **`CreateOrden(orden)`** — Calcula el `total` automáticamente (`cantidad × precio_unitario`), asigna `FechaPedido`, `Estado = "pendiente"` y `Resenado = false`.
+- **`ActualizarEstadoOrdenesMasivo(estadoActual, nuevoEstado)`** — Usa `UpdateMany` para cambiar el estado de todas las órdenes que coincidan con el filtro. Devuelve el conteo de documentos modificados.
+- **`EliminarOrden(id)`** — Elimina una orden individual por su `ObjectID` con `DeleteOne`.
+- **`EliminarOrdenesPorEstado(estado)`** — Elimina múltiples órdenes con `DeleteMany` filtrando por estado. Devuelve el conteo de documentos eliminados.
+- **`ContarOrdenesPorEstado(estado)`** — Usa `CountDocuments` para contar órdenes; si `estado` está vacío, cuenta todas.
 
 #### `resena_service.go`
 
@@ -306,36 +354,58 @@ Implementa **MongoDB Aggregation Pipelines** para extraer métricas del negocio.
 | `$unwind` | Descompone el array del join |
 | `$project` | Selecciona los campos a devolver |
 
+#### `archivo_service.go`
+
+Gestiona archivos usando **MongoDB GridFS**, que divide los archivos en chunks y los almacena en la base de datos.
+
+- **`SubirArchivo(nombreArchivo, fileStream)`** — Abre un stream de subida en el bucket GridFS, copia el contenido del `io.Reader` recibido y devuelve el `ObjectID` generado como string. El tamaño de chunk por defecto es 255 KB.
+- **`DescargarArchivo(fileID, writer)`** — Convierte el ID hex a `ObjectID`, busca el archivo en GridFS y escribe el contenido directamente en el `io.Writer` proporcionado (el `ResponseWriter` de Gin).
+
+#### `bulk_service.go`
+
+Genera e inserta órdenes ficticias masivamente usando `BulkWrite`.
+
+**`GenerarOrdenesMasivas(cantidad int)`:**
+- Genera `cantidad` documentos de órdenes con datos aleatorios (estado, total, fecha de los últimos 30 días).
+- Acumula todos los modelos como `InsertOneModel` y los envía en **una sola operación de red** con `BulkWrite`.
+- Usa `Ordered: false` para que los fallos individuales no detengan las demás inserciones.
+- Timeout de 30 segundos para tolerar el volumen de datos.
+- Límite máximo de 100,000 órdenes por petición para evitar timeouts.
+
 ---
 
 ### `handlers/`
 
 Los handlers son funciones de Gin que actúan como **controladores HTTP**. Reciben la petición (`*gin.Context`), validan el cuerpo JSON, llaman al servicio correspondiente y devuelven una respuesta JSON.
 
-#### `usuario_handler.go` — `CreateUsuario`
-- Deserializa el body JSON a `models.Usuario` con `ShouldBindJSON`.
-- Llama a `services.CreateUsuario`.
-- Devuelve `200 OK` con `{"message": "usuario creado"}` o un error.
+#### `usuario_handler.go`
+- **`CreateUsuario`** — Deserializa el body JSON a `models.Usuario`, llama a `services.CreateUsuario` y devuelve `200 OK`.
+- **`AddDireccionUsuario`** — Extrae el `:id` de la URL y el body JSON como `models.Direccion`. Llama a `services.AgregarDireccionUsuario` para hacer `$push` en el array.
 
-#### `restaurante_handler.go` — `GetRestaurantes`
-- Sin body de entrada.
-- Llama a `services.GetRestaurantes`.
-- Devuelve `200 OK` con el array de restaurantes en JSON.
+#### `restaurante_handler.go`
+- **`GetRestaurantes`** — Sin body; devuelve el array completo de restaurantes.
+- **`SearchRestaurantes`** — Lee los query params `categoria`, `limit` y `skip`, llama a `services.BuscarRestaurantesAvanzado` y devuelve los resultados paginados.
+- **`GetCategorias`** — Llama a `services.ObtenerCategoriasUnicas` y devuelve `{"categorias_disponibles": [...]}`.
 
-#### `orden_handler.go` — `CreateOrden`
-- Deserializa el body JSON a `models.Orden`.
-- Llama a `services.CreateOrden` (que calcula el total automáticamente).
-- Devuelve `200 OK` con `{"message": "orden creada"}`.
+#### `orden_handler.go`
+- **`CreateOrden`** — Deserializa el body JSON a `models.Orden` y llama a `services.CreateOrden`.
+- **`UpdateOrdenesMasivo`** — Recibe `{"estado_actual": "...", "nuevo_estado": "..."}` y llama a `services.ActualizarEstadoOrdenesMasivo`. Devuelve el conteo de documentos modificados.
+- **`DeleteOrden`** — Extrae el `:id` de la URL y llama a `services.EliminarOrden`.
+- **`DeleteOrdenesMasivo`** — Lee el query param `estado` y llama a `services.EliminarOrdenesPorEstado`. Devuelve el conteo de eliminados.
+- **`GetCountOrdenes`** — Lee el query param `estado` (opcional) y llama a `services.ContarOrdenesPorEstado`.
 
-#### `resena_handler.go` — `CreateResena`
-- Deserializa el body JSON a `models.Resena`.
-- Llama a `services.CrearResenaTransaccion` (operación transaccional).
-- Devuelve `200 OK` con `{"message": "reseña creada con transacción"}`.
+#### `resena_handler.go`
+- **`CreateResena`** — Deserializa el body JSON a `models.Resena` y llama a `services.CrearResenaTransaccion` (operación transaccional).
 
-#### `analytics_handler.go` — `TopPlatillos` y `TopUsuarios`
-- Sin body de entrada (peticiones GET).
-- Llaman a sus respectivos servicios de analítica.
-- Devuelven los resultados del pipeline de agregación directamente.
+#### `analytics_handler.go`
+- **`TopPlatillos`** y **`TopUsuarios`** — Sin body (GET). Llaman a sus respectivos servicios y devuelven los resultados del pipeline directamente.
+
+#### `archivo_handler.go`
+- **`UploadImagen`** — Lee el archivo del campo `file` en un formulario `multipart/form-data` y llama a `services.SubirArchivo`. Devuelve el `file_id` y el nombre del archivo.
+- **`DownloadImagen`** — Extrae el `:id` de la URL, configura headers de descarga y llama a `services.DescargarArchivo` escribiendo directamente en el `ResponseWriter`.
+
+#### `bulk_handler.go`
+- **`InsertBulkOrdenes`** — Lee el query param `cantidad` (default 50,000, máx. 100,000) y llama a `services.GenerarOrdenesMasivas`. Devuelve el conteo de documentos creados.
 
 ---
 
@@ -344,28 +414,42 @@ Los handlers son funciones de Gin que actúan como **controladores HTTP**. Recib
 Registra todos los endpoints del servidor en el router de Gin:
 
 ```go
-POST   /usuarios                    → handlers.CreateUsuario
-GET    /restaurantes                → handlers.GetRestaurantes
-POST   /ordenes                     → handlers.CreateOrden
-POST   /resenas                     → handlers.CreateResena
-GET    /analytics/top-platillos     → handlers.TopPlatillos
-GET    /analytics/top-usuarios      → handlers.TopUsuarios
+POST   /usuarios                       → handlers.CreateUsuario
+PUT    /usuarios/:id/direcciones       → handlers.AddDireccionUsuario
+
+GET    /restaurantes                   → handlers.GetRestaurantes
+GET    /restaurantes/search            → handlers.SearchRestaurantes
+GET    /restaurantes/categorias        → handlers.GetCategorias
+
+POST   /ordenes                        → handlers.CreateOrden
+PUT    /ordenes/estado-masivo          → handlers.UpdateOrdenesMasivo
+DELETE /ordenes/:id                    → handlers.DeleteOrden
+DELETE /ordenes/masivo                 → handlers.DeleteOrdenesMasivo
+GET    /ordenes/count                  → handlers.GetCountOrdenes
+
+POST   /resenas                        → handlers.CreateResena
+
+GET    /analytics/top-platillos        → handlers.TopPlatillos
+GET    /analytics/top-usuarios         → handlers.TopUsuarios
+
+POST   /archivos                       → handlers.UploadImagen
+GET    /archivos/:id                   → handlers.DownloadImagen
+
+POST   /bulk/ordenes                   → handlers.InsertBulkOrdenes
 ```
 
 ---
 
 ### `utils/bulk.go`
 
-Utilidad para **inserción masiva** de órdenes usando `BulkWrite` de MongoDB.
+Utilidad auxiliar para **inserción masiva** de órdenes usando `BulkWrite` de MongoDB.
 
 **`BulkInsertOrdenes(ordenes []models.Orden)`:**
 - Itera sobre un slice de órdenes y genera un `InsertOneModel` por cada una.
 - Acumula todos los modelos en un slice de `mongo.WriteModel`.
 - Envía todas las inserciones en **una sola operación de red** con `collection.BulkWrite`.
 - Asigna `FechaPedido = time.Now()` y `Estado = "entregado"` a cada orden.
-- Timeout de 10 segundos (mayor que el estándar por el volumen de datos).
-
-Esta función es útil para cargar datos de prueba o migrar grandes volúmenes de órdenes de manera eficiente.
+- Timeout de 10 segundos.
 
 ---
 
@@ -380,6 +464,7 @@ El proyecto trabaja con las siguientes colecciones dentro de la base de datos `P
 | `ordenes` | Pedidos realizados por usuarios |
 | `resenas` | Reseñas escritas por usuarios sobre restaurantes |
 | `articulos_menu` | Platillos/artículos del menú de cada restaurante |
+| `fs.files` / `fs.chunks` | Archivos almacenados en GridFS |
 
 ---
 
@@ -403,6 +488,20 @@ Content-Type: application/json
       "coordenadas": "14.6099,-90.5285"
     }
   ]
+}
+```
+
+### Agregar una dirección a un usuario
+
+```http
+PUT /usuarios/64a1b2c3d4e5f6789012345/direcciones
+Content-Type: application/json
+
+{
+  "calle": "12 Calle 5-10",
+  "zona": 1,
+  "ciudad": "Guatemala",
+  "coordenadas": "14.6407,-90.5133"
 }
 ```
 
@@ -432,7 +531,37 @@ Content-Type: application/json
 }
 ```
 
-> El campo `total`, `estado`, `fecha_pedido` y `resenado` son calculados/asignados automáticamente por el servidor.
+> Los campos `total`, `estado`, `fecha_pedido` y `resenado` son calculados/asignados automáticamente por el servidor.
+
+### Actualizar estado de órdenes masivamente
+
+```http
+PUT /ordenes/estado-masivo
+Content-Type: application/json
+
+{
+  "estado_actual": "pendiente",
+  "nuevo_estado": "entregada"
+}
+```
+
+### Eliminar órdenes por estado
+
+```http
+DELETE /ordenes/masivo?estado=cancelada
+```
+
+### Contar órdenes
+
+```http
+GET /ordenes/count?estado=pendiente
+```
+
+### Búsqueda avanzada de restaurantes
+
+```http
+GET /restaurantes/search?categoria=pizza&limit=5&skip=0
+```
 
 ### Crear una reseña
 
@@ -449,11 +578,32 @@ Content-Type: application/json
 }
 ```
 
+### Subir un archivo
+
+```http
+POST /archivos
+Content-Type: multipart/form-data
+
+(Body → form-data → Key: "file", Type: File)
+```
+
+### Descargar un archivo
+
+```http
+GET /archivos/64a1b2c3d4e5f6789012349
+```
+
 ### Consultar analíticas
 
 ```http
 GET /analytics/top-platillos
 GET /analytics/top-usuarios
+```
+
+### Inserción masiva de órdenes
+
+```http
+POST /bulk/ordenes?cantidad=50000
 ```
 
 ---
@@ -493,3 +643,5 @@ Cliente envía POST /resenas
 - **Transacciones**: Solo la creación de reseñas usa transacción completa porque involucra modificar tres colecciones que deben mantenerse consistentes entre sí.
 - **Aggregation Pipelines**: Las analíticas se resuelven completamente en el lado del servidor MongoDB, sin procesar datos en la aplicación Go, aprovechando al máximo el motor de MongoDB.
 - **Timeouts de contexto**: Todas las operaciones usan `context.WithTimeout` para evitar que una consulta lenta bloquee el servidor indefinidamente.
+- **GridFS**: Los archivos se almacenan directamente en MongoDB usando GridFS, que divide el contenido en chunks de 255 KB y los referencia mediante un `ObjectID`.
+- **BulkWrite**: Las operaciones masivas usan `BulkWrite` con `Ordered: false` para maximizar el rendimiento y tolerar fallos individuales sin detener el resto de inserciones.

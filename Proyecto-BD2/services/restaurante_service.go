@@ -8,6 +8,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func CreateRestaurante(restaurante models.Restaurante) error {
@@ -69,4 +70,76 @@ func GetRestauranteByID(id string) (*models.Restaurante, error) {
 	}
 
 	return &restaurante, nil
+}
+
+// Búsqueda avanzada con Filtro, Sort, Skip, Limit y Proyección
+func BuscarRestaurantesAvanzado(categoria string, limit int64, skip int64) ([]bson.M, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("restaurantes")
+
+	// Filtro: Si envían categoría, filtramos. Si no, traemos todos.
+	filtro := bson.M{}
+	if categoria != "" {
+		filtro = bson.M{"categorias": categoria}
+	}
+
+	// Opciones: Sort (calificacion descendente), Skip, Limit y Proyección
+	opts := options.Find().
+		SetSort(bson.D{{Key: "calificacion_promedio", Value: -1}}).
+		SetSkip(skip).
+		SetLimit(limit).
+		SetProjection(bson.M{"nombre": 1, "calificacion_promedio": 1, "categorias": 1, "_id": 0}) // Proyección: omitimos _id, traemos info clave
+
+	cursor, err := collection.Find(ctx, filtro, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var resultados []bson.M
+	if err = cursor.All(ctx, &resultados); err != nil {
+		return nil, err
+	}
+
+	return resultados, nil
+}
+
+// Agregación Simple: Distinct
+func ObtenerCategoriasUnicas() ([]interface{}, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("restaurantes")
+
+	// Obtenemos los valores distintos del array "categorias"
+	categorias, err := collection.Distinct(ctx, "categorias", bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	return categorias, nil
+}
+
+func BuscarCercanos(long float64, lat float64, metros float64) ([]bson.M, error) {
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	collection := config.DB.Collection("restaurantes")
+
+	filtro := bson.M{
+		"ubicacion": bson.M{
+			"$near": bson.M{
+				"$geometry": bson.M{
+					"type":        "Point",
+					"coordinates": []float64{long, lat},
+				},
+				"$maxDistance": metros,
+			},
+		},
+	}
+
+	cursor, _ := collection.Find(ctx, filtro)
+	var resultados []bson.M
+	cursor.All(ctx, &resultados)
+	return resultados, nil
 }

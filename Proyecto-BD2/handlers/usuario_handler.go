@@ -28,3 +28,20 @@ func CreateUsuario(c *gin.Context) {
 		"message": "usuario creado",
 	})
 }
+
+func AddDireccionUsuario(c *gin.Context) {
+	usuarioID := c.Param("id")
+	var nuevaDireccion models.Direccion
+
+	if err := c.ShouldBindJSON(&nuevaDireccion); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON inválido"})
+		return
+	}
+
+	if err := services.AgregarDireccionUsuario(usuarioID, nuevaDireccion); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Dirección agregada correctamente al arreglo"})
+}

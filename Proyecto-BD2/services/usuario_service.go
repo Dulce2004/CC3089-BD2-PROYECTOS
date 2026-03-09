@@ -70,3 +70,22 @@ func GetUsuarioByID(id string) (*models.Usuario, error) {
 
 	return &usuario, nil
 }
+
+// Actualizar 1 documento y Manejo de Arrays ($push)
+func AgregarDireccionUsuario(usuarioID string, nuevaDireccion models.Direccion) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("usuarios")
+	objID, err := primitive.ObjectIDFromHex(usuarioID)
+	if err != nil {
+		return err
+	}
+
+	filtro := bson.M{"_id": objID}
+	// Usamos $push para agregar al array de direcciones
+	actualizacion := bson.M{"$push": bson.M{"direcciones": nuevaDireccion}}
+
+	_, err = collection.UpdateOne(ctx, filtro, actualizacion)
+	return err
+}
