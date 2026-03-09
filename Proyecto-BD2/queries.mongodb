@@ -1,0 +1,114 @@
+// =============================
+// 1. Contar órdenes por estado
+// =============================
+
+db.ordenes.aggregate([
+{
+ $group: {
+   _id: "$estado",
+   total_ordenes: { $sum: 1 }
+ }
+}
+])
+
+
+// =============================
+// 2. Top 5 usuarios que más gastan
+// =============================
+
+db.ordenes.aggregate([
+{
+ $group: {
+   _id: "$usuario_id",
+   total_gastado: { $sum: "$total" }
+ }
+},
+{ $sort: { total_gastado: -1 } },
+{ $limit: 5 }
+])
+
+
+// =============================
+// 3. Top 5 platillos más vendidos
+// =============================
+
+db.ordenes.aggregate([
+{ $unwind: "$items" },
+{
+ $group: {
+   _id: "$items.articulo",
+   cantidad_vendida: { $sum: "$items.cantidad" }
+ }
+},
+{ $sort: { cantidad_vendida: -1 } },
+{ $limit: 5 }
+])
+
+
+// =============================
+// 4. Ingresos por restaurante
+// =============================
+
+db.ordenes.aggregate([
+{
+ $group: {
+   _id: "$restaurante_id",
+   ingresos_totales: { $sum: "$total" }
+ }
+},
+{ $sort: { ingresos_totales: -1 } }
+])
+
+
+// =============================
+// 5. Promedio de gasto por usuario
+// =============================
+
+db.ordenes.aggregate([
+{
+ $group: {
+   _id: "$usuario_id",
+   promedio_gasto: { $avg: "$total" }
+ }
+},
+{ $sort: { promedio_gasto: -1 } }
+])
+
+
+// =============================
+// 6. Órdenes realizadas hoy
+// =============================
+
+db.ordenes.find({
+ fecha_pedido: {
+   $gte: new Date(new Date().setHours(0,0,0,0))
+ }
+})
+
+
+// =============================
+// 7. Restaurantes con mejor rating
+// =============================
+
+db.restaurantes.aggregate([
+{
+ $sort: { rating_promedio: -1 }
+},
+{ $limit: 5 }
+])
+
+
+// =============================
+// 8. Usuarios con más órdenes
+// =============================
+
+db.ordenes.aggregate([
+{
+ $group: {
+   _id: "$usuario_id",
+   total_ordenes: { $sum: 1 }
+ }
+},
+{ $sort: { total_ordenes: -1 } },
+{ $limit: 5 }
+])

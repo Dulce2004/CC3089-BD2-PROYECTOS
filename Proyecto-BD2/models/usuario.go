@@ -17,6 +17,7 @@ type Usuario struct {
 	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Nombre        string             `bson:"nombre" json:"nombre"`
 	Correo        string             `bson:"correo" json:"correo"`
+	Contrasena    string             `bson:"contrasena" json:"-"`
 	Telefono      string             `bson:"telefono" json:"telefono"`
 	Direcciones   []Direccion        `bson:"direcciones" json:"direcciones"`
 	FechaRegistro time.Time          `bson:"fecha_registro" json:"fecha_registro"`

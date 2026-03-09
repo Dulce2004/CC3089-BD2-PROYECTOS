@@ -36,7 +36,8 @@ func ConnectDB(uri string, dbName string) {
 }
 
 func InitIndices(db *mongo.Database) {
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	// 1. Índice Simple y Único (Usuarios)
 	db.Collection("usuarios").Indexes().CreateOne(ctx, mongo.IndexModel{

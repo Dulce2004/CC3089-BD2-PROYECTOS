@@ -8,6 +8,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func CreateOrden(orden models.Orden) error {
@@ -95,4 +96,92 @@ func ContarOrdenesPorEstado(estado string) (int64, error) {
 
 	total, err := collection.CountDocuments(ctx, filtro)
 	return total, err
+}
+
+// GetOrdenes devuelve todas las órdenes (opcionalmente filtradas por usuario)
+func GetOrdenes(usuarioID string) ([]models.Orden, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("ordenes")
+	filtro := bson.M{}
+	if usuarioID != "" {
+		objID, err := primitive.ObjectIDFromHex(usuarioID)
+		if err == nil {
+			filtro = bson.M{"usuario_id": objID}
+		}
+	}
+
+	cursor, err := collection.Find(ctx, filtro)
+	if err != nil {
+		return nil, err
+	}
+
+	var ordenes []models.Orden
+	if err = cursor.All(ctx, &ordenes); err != nil {
+		return nil, err
+	}
+	return ordenes, nil
+}
+
+// GetOrdenByID devuelve una orden por su ID
+func GetOrdenByID(id string) (*models.Orden, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("ordenes")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	var orden models.Orden
+	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&orden)
+	if err != nil {
+		return nil, err
+	}
+	return &orden, nil
+}
+
+// UpdateOrdenEstado actualiza el estado de una orden individual usando el índice compuesto
+func UpdateOrdenEstado(id string, nuevoEstado string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("ordenes")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = collection.UpdateOne(ctx,
+		bson.M{"_id": objID},
+		bson.M{"$set": bson.M{"estado": nuevoEstado}},
+	)
+	return err
+}
+
+// GetOrdenesPorRestaurante usa el índice compuesto (restaurante_id, fecha)
+func GetOrdenesPorRestaurante(restauranteID string) ([]models.Orden, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("ordenes")
+	objID, err := primitive.ObjectIDFromHex(restauranteID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Usa el índice compuesto (restaurante_id, fecha DESC)
+	opts := options.Find().SetSort(bson.D{{Key: "fecha_pedido", Value: -1}})
+	cursor, err := collection.Find(ctx, bson.M{"restaurante_id": objID}, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	var ordenes []models.Orden
+	if err = cursor.All(ctx, &ordenes); err != nil {
+		return nil, err
+	}
+	return ordenes, nil
 }

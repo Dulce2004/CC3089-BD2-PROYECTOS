@@ -13,6 +13,7 @@ func main() {
 	dbName := "Proyecto1-BD2"
 
 	config.ConnectDB(uri, dbName)
+	config.InitIndices(config.DB)
 
 	router := gin.Default()
 

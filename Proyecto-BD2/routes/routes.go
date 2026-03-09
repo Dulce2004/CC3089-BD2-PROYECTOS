@@ -2,54 +2,83 @@ package routes
 
 import (
 	"Proyecto-BD2/handlers"
+	"Proyecto-BD2/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
 func SetupRoutes(r *gin.Engine) {
 
-	r.POST("/usuarios", handlers.CreateUsuario)
-	r.GET("/restaurantes", handlers.GetRestaurantes)
+	// --- AUTH ---
+	auth := r.Group("/auth")
+	{
+		auth.POST("/register", handlers.Register)
+		auth.POST("/login", handlers.Login)
+	}
 
-	r.POST("/ordenes", handlers.CreateOrden)
+	// --- USUARIOS (protegidos) ---
+	usuarios := r.Group("/usuarios")
+	usuarios.Use(middleware.AuthRequired())
+	{
+		usuarios.GET("/perfil", handlers.GetPerfil)
+		usuarios.PUT("/perfil", handlers.UpdatePerfil)
+		usuarios.PUT("/:id/direcciones", handlers.AddDireccionUsuario)
+	}
 
+	// --- RESTAURANTES ---
+	restaurantes := r.Group("/restaurantes")
+	{
+		restaurantes.GET("", handlers.GetRestaurantes)
+		restaurantes.POST("", handlers.CreateRestaurante)
+		restaurantes.GET("/buscar", handlers.BuscarRestaurantesPorNombre) // ?nombre=
+		restaurantes.GET("/categoria", handlers.BuscarPorCategoria)       // ?cat=
+		restaurantes.GET("/cerca", handlers.BuscarRestaurantesCercanos)   // ?lat=&lng=&dist=
+		restaurantes.GET("/search", handlers.SearchRestaurantes)          // ?categoria=&limit=&skip=
+		restaurantes.GET("/categorias", handlers.GetCategorias)
+		restaurantes.GET("/:id", handlers.GetRestauranteByID)
+		restaurantes.PUT("/:id", handlers.UpdateRestaurante)
+		restaurantes.DELETE("/:id", handlers.DeleteRestaurante)
+
+		// Menú por restaurante
+		restaurantes.POST("/:id/menu", handlers.CreateArticuloMenu)
+		restaurantes.GET("/:id/menu", handlers.GetMenuRestaurante)
+
+		// Órdenes por restaurante (usa índice compuesto)
+		restaurantes.GET("/:id/ordenes", handlers.GetOrdenesPorRestaurante)
+	}
+
+	// --- MENÚ ---
+	menu := r.Group("/menu")
+	{
+		menu.PUT("/:id", handlers.UpdateArticuloMenu)
+		menu.DELETE("/:id", handlers.DeleteArticuloMenu)
+	}
+
+	// --- ORDENES (protegidas) ---
+	ordenes := r.Group("/ordenes")
+	ordenes.Use(middleware.AuthRequired())
+	{
+		ordenes.POST("", handlers.CreateOrden)
+		ordenes.GET("", handlers.GetOrdenes)
+		ordenes.GET("/count", handlers.GetCountOrdenes)
+		ordenes.PUT("/estado-masivo", handlers.UpdateOrdenesMasivo)
+		ordenes.DELETE("/masivo", handlers.DeleteOrdenesMasivo)
+		ordenes.GET("/:id", handlers.GetOrdenByID)
+		ordenes.PUT("/:id/estado", handlers.UpdateOrdenEstado)
+		ordenes.DELETE("/:id", handlers.DeleteOrden)
+	}
+
+	// --- RESEÑAS ---
 	r.POST("/resenas", handlers.CreateResena)
 
+	// --- ANALYTICS ---
 	r.GET("/analytics/top-platillos", handlers.TopPlatillos)
 	r.GET("/analytics/top-usuarios", handlers.TopUsuarios)
 
-	// Búsqueda avanzada (GET /restaurantes/search?categoria=pizza&limit=5&skip=0)
-	r.GET("/restaurantes/search", handlers.SearchRestaurantes)
-
-	// Actualizar 1 doc + Arrays ($push) (PUT /usuarios/:id/direcciones)
-	r.PUT("/usuarios/:id/direcciones", handlers.AddDireccionUsuario)
-
-	// Actualizar varios docs (PUT /ordenes/estado-masivo)
-	r.PUT("/ordenes/estado-masivo", handlers.UpdateOrdenesMasivo)
-
-	// --- ELIMINAR ---
-	// Eliminar 1 orden (DELETE /ordenes/:id)
-	r.DELETE("/ordenes/:id", handlers.DeleteOrden)
-
-	// Eliminar varias órdenes (DELETE /ordenes/masivo?estado=cancelada)
-	r.DELETE("/ordenes/masivo", handlers.DeleteOrdenesMasivo)
-
-	// --- AGREGACIONES SIMPLES ---
-	// Count de órdenes (GET /ordenes/count?estado=pendiente)
-	r.GET("/ordenes/count", handlers.GetCountOrdenes)
-
-	// Distinct de categorías (GET /restaurantes/categorias)
-	r.GET("/restaurantes/categorias", handlers.GetCategorias)
-
 	// --- GRIDFS / ARCHIVOS ---
-	// Subir una imagen (POST /archivos)
-	// En Postman debes usar Body -> form-data -> Key: "file" (tipo File)
 	r.POST("/archivos", handlers.UploadImagen)
-
-	// Descargar/Ver una imagen (GET /archivos/:id)
 	r.GET("/archivos/:id", handlers.DownloadImagen)
 
-	// --- OPERACIONES MASIVAS (Puntos Extra) ---
-	// Generar datos de prueba (POST /bulk/ordenes?cantidad=50000)
+	// --- OPERACIONES MASIVAS ---
 	r.POST("/bulk/ordenes", handlers.InsertBulkOrdenes)
 }

@@ -123,7 +123,8 @@ func ObtenerCategoriasUnicas() ([]interface{}, error) {
 }
 
 func BuscarCercanos(long float64, lat float64, metros float64) ([]bson.M, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	collection := config.DB.Collection("restaurantes")
 
 	filtro := bson.M{
@@ -142,4 +143,79 @@ func BuscarCercanos(long float64, lat float64, metros float64) ([]bson.M, error)
 	var resultados []bson.M
 	cursor.All(ctx, &resultados)
 	return resultados, nil
+}
+
+// UpdateRestaurante actualiza un restaurante por su ID
+func UpdateRestaurante(id string, update bson.M) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("restaurantes")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	delete(update, "_id")
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": objID}, bson.M{"$set": update})
+	return err
+}
+
+// DeleteRestaurante elimina un restaurante por su ID
+func DeleteRestaurante(id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("restaurantes")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID})
+	return err
+}
+
+// BuscarPorNombre usa regex sobre el campo nombre (index-friendly al inicio)
+func BuscarPorNombre(nombre string) ([]models.Restaurante, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("restaurantes")
+
+	// Regex case-insensitive - más eficiente con ancla ^ para usar índice
+	filtro := bson.M{"nombre": primitive.Regex{Pattern: nombre, Options: "i"}}
+
+	cursor, err := collection.Find(ctx, filtro)
+	if err != nil {
+		return nil, err
+	}
+
+	var restaurantes []models.Restaurante
+	if err = cursor.All(ctx, &restaurantes); err != nil {
+		return nil, err
+	}
+	return restaurantes, nil
+}
+
+// BuscarPorCategoria usa el índice multikey sobre el array categorias
+func BuscarPorCategoria(categoria string) ([]models.Restaurante, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("restaurantes")
+
+	// El índice multikey de categorias se activa con esta query exacta
+	filtro := bson.M{"categorias": categoria}
+
+	cursor, err := collection.Find(ctx, filtro)
+	if err != nil {
+		return nil, err
+	}
+
+	var restaurantes []models.Restaurante
+	if err = cursor.All(ctx, &restaurantes); err != nil {
+		return nil, err
+	}
+	return restaurantes, nil
 }
