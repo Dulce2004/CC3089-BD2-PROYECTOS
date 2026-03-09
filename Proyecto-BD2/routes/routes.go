@@ -81,4 +81,5 @@ func SetupRoutes(r *gin.Engine) {
 
 	// --- OPERACIONES MASIVAS ---
 	r.POST("/bulk/ordenes", handlers.InsertBulkOrdenes)
+	r.POST("/bulk/todo", handlers.InsertBulkTodo)
 }

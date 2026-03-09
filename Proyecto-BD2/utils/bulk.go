@@ -32,3 +32,70 @@ func BulkInsertOrdenes(ordenes []models.Orden) error {
 
 	return err
 }
+
+func BulkInsertUsuarios(usuarios []models.Usuario) error {
+	collection := config.DB.Collection("usuarios")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var operations []mongo.WriteModel
+	for _, u := range usuarios {
+		u.FechaRegistro = time.Now()
+		model := mongo.NewInsertOneModel().SetDocument(u)
+		operations = append(operations, model)
+	}
+
+	_, err := collection.BulkWrite(ctx, operations)
+	return err
+}
+
+func BulkInsertRestaurantes(restaurantes []models.Restaurante) error {
+	collection := config.DB.Collection("restaurantes")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var operations []mongo.WriteModel
+	for _, r := range restaurantes {
+		r.FechaCreacion = time.Now()
+		model := mongo.NewInsertOneModel().SetDocument(r)
+		operations = append(operations, model)
+	}
+
+	_, err := collection.BulkWrite(ctx, operations)
+	return err
+}
+
+func BulkInsertArticulosMenu(articulos []models.ArticuloMenu) error {
+	collection := config.DB.Collection("articulos_menu")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var operations []mongo.WriteModel
+	for _, a := range articulos {
+		model := mongo.NewInsertOneModel().SetDocument(a)
+		operations = append(operations, model)
+	}
+
+	_, err := collection.BulkWrite(ctx, operations)
+	return err
+}
+
+func BulkInsertResenas(resenas []models.Resena) error {
+	collection := config.DB.Collection("resenas")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var operations []mongo.WriteModel
+	for _, r := range resenas {
+		r.FechaResena = time.Now()
+		model := mongo.NewInsertOneModel().SetDocument(r)
+		operations = append(operations, model)
+	}
+
+	_, err := collection.BulkWrite(ctx, operations)
+	return err
+}

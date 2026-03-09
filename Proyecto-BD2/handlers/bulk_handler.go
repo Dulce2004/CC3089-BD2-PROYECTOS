@@ -30,3 +30,29 @@ func InsertBulkOrdenes(c *gin.Context) {
 		"status":             "Requerimiento de volumen de datos cumplido",
 	})
 }
+
+func InsertBulkTodo(c *gin.Context) {
+	cantidadStr := c.DefaultQuery("cantidad", "500")
+	cantidad, _ := strconv.Atoi(cantidadStr)
+
+	if cantidad > 100000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "El límite de órdenes por petición es de 100,000"})
+		return
+	}
+
+	if cantidad < 1 {
+		cantidad = 500
+	}
+
+	resultado, err := services.GenerarDatosMasivos(cantidad)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error generando datos masivos: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Datos masivos generados exitosamente en todas las colecciones",
+		"resultado": resultado,
+		"nota": "Las órdenes referencian usuarios y restaurantes reales. Las reseñas referencian órdenes entregadas.",
+	})
+}
