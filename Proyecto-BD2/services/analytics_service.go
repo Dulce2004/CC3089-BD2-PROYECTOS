@@ -20,10 +20,7 @@ func TopPlatillos() ([]bson.M, error) {
 		{"$unwind": "$items"},
 
 		{"$group": bson.M{
-			"_id": bson.M{
-				"restaurante": "$restaurante_id",
-				"articulo":    "$items.articulo_id",
-			},
+			"_id": "$items.articulo_id",
 			"cantidad_total": bson.M{
 				"$sum": "$items.cantidad",
 			},
@@ -42,6 +39,21 @@ func TopPlatillos() ([]bson.M, error) {
 		}},
 
 		{"$limit": 5},
+
+		{"$lookup": bson.M{
+			"from":         "articulos_menu",
+			"localField":   "_id",
+			"foreignField": "_id",
+			"as":           "articulo",
+		}},
+
+		{"$unwind": "$articulo"},
+
+		{"$project": bson.M{
+			"nombre":          "$articulo.nombre",
+			"cantidad_total":  1,
+			"ingresos":        1,
+		}},
 	}
 
 	cursor, err := collection.Aggregate(context.Background(), pipeline)

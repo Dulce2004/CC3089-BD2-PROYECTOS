@@ -69,7 +69,12 @@ func SetupRoutes(r *gin.Engine) {
 	}
 
 	// --- RESEÑAS ---
-	r.POST("/resenas", handlers.CreateResena)
+	resenas := r.Group("/resenas")
+	{
+		resenas.POST("", handlers.CreateResena)
+		resenas.GET("", handlers.GetResenas)
+		resenas.GET("/restaurante/:id", handlers.GetResenasPorRestaurante)
+	}
 
 	// --- ANALYTICS ---
 	r.GET("/analytics/top-platillos", handlers.TopPlatillos)

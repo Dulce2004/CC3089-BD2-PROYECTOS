@@ -12,6 +12,45 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+func ObtenerResenas() ([]bson.M, error) {
+	collection := config.DB.Collection("resenas")
+	
+	opts := options.Find().SetSort(bson.M{"fecha_resena": -1})
+	cursor, err := collection.Find(context.Background(), bson.M{}, opts)
+	if err != nil {
+		return nil, err
+	}
+	
+	var resenas []bson.M
+	if err = cursor.All(context.Background(), &resenas); err != nil {
+		return nil, err
+	}
+	
+	return resenas, nil
+}
+
+func ObtenerResenasPorRestaurante(restauranteID string) ([]bson.M, error) {
+	collection := config.DB.Collection("resenas")
+	
+	id, err := primitive.ObjectIDFromHex(restauranteID)
+	if err != nil {
+		return nil, err
+	}
+	
+	opts := options.Find().SetSort(bson.M{"fecha_resena": -1})
+	cursor, err := collection.Find(context.Background(), bson.M{"restaurante_id": id}, opts)
+	if err != nil {
+		return nil, err
+	}
+	
+	var resenas []bson.M
+	if err = cursor.All(context.Background(), &resenas); err != nil {
+		return nil, err
+	}
+	
+	return resenas, nil
+}
+
 func CrearResenaTransaccion(resena models.Resena) error {
 
 	ctx := context.Background()

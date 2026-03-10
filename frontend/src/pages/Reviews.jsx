@@ -5,17 +5,20 @@ import {
   getRestaurantes,
   getOrdenesByRestaurante,
   createResena,
+  getResenasPorRestaurante,
 } from '../services/api';
 
 export default function ReviewsPage({ user }) {
   const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState('');
   const [orders, setOrders] = useState([]);
+  const [resenas, setResenas] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState('success');
   const [submitting, setSubmitting] = useState(false);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingResenas, setLoadingResenas] = useState(false);
   const [form, setForm] = useState({
     pedido_id: '',
     calificacion: 5,
@@ -36,17 +39,26 @@ export default function ReviewsPage({ user }) {
   const loadOrders = useCallback(async (id) => {
     if (!id) {
       setOrders([]);
+      setResenas([]);
       return;
     }
     setLoadingOrders(true);
+    setLoadingResenas(true);
     try {
-      const res = await getOrdenesByRestaurante(id);
-      const data = res?.data;
-      setOrders(Array.isArray(data) ? data : []);
+      const [ordRes, resRes] = await Promise.all([
+        getOrdenesByRestaurante(id).catch(() => null),
+        getResenasPorRestaurante(id).catch(() => null),
+      ]);
+      const ordData = ordRes?.data;
+      const resData = resRes?.data;
+      setOrders(Array.isArray(ordData) ? ordData : []);
+      setResenas(Array.isArray(resData) ? resData : []);
     } catch {
       setOrders([]);
+      setResenas([]);
     } finally {
       setLoadingOrders(false);
+      setLoadingResenas(false);
     }
   }, []);
 
@@ -525,6 +537,68 @@ export default function ReviewsPage({ user }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Reviews Display Section ────────────────────── */}
+      {selectedRestaurant && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            📝 Recent Reviews
+          </h3>
+
+          {loadingResenas ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
+              Loading reviews...
+            </div>
+          ) : resenas.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center text-gray-400 text-sm">
+              No reviews yet for this restaurant.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {resenas.slice(0, 10).map((review, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        ⭐ {review.calificacion}/5
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {review.fecha_resena
+                          ? new Date(review.fecha_resena).toLocaleDateString('es-ES')
+                          : '—'}
+                      </p>
+                    </div>
+                    <div className="flex gap-0.5">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          size={16}
+                          className={
+                            i < (review.calificacion || 0)
+                              ? 'text-yellow-400 fill-yellow-400'
+                              : 'text-gray-200'
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    {review.comentario || '(Sin comentario)'}
+                  </p>
+                </div>
+              ))}
+              {resenas.length > 10 && (
+                <p className="text-sm text-gray-500 text-center mt-4">
+                  +{resenas.length - 10} more reviews
+                </p>
+              )}
             </div>
           )}
         </div>

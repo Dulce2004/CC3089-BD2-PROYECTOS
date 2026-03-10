@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
+import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Restaurants from './pages/Restaurants';
@@ -19,6 +20,26 @@ export default function App() {
     return stored ? JSON.parse(stored) : null;
   });
   const [token, setToken] = useState(() => localStorage.getItem('token'));
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Verify token on app load
+  useEffect(() => {
+    const verifyToken = () => {
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+
+      if (!storedToken || !storedUser) {
+        setToken(null);
+        setUser(null);
+      } else {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      }
+      setIsInitialized(true);
+    };
+
+    verifyToken();
+  }, []);
 
   const handleLogin = (usuario, jwt) => {
     setUser(usuario);
@@ -32,8 +53,19 @@ export default function App() {
     setToken(null);
   };
 
-  if (!token) {
-    return <Login onLogin={handleLogin} />;
+  // Don't render until initialization is complete
+  if (!isInitialized) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  // Show login if not authenticated
+  if (!token || !user) {
+    return (
+      <Routes>
+        <Route path="/" element={<Login onLogin={handleLogin} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
   }
 
   return (
@@ -49,14 +81,15 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto p-6">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/users" element={<Users user={user} />} />
-            <Route path="/restaurants" element={<Restaurants />} />
-            <Route path="/menu" element={<Menu />} />
-            <Route path="/orders" element={<Orders user={user} />} />
-            <Route path="/reviews" element={<Reviews user={user} />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/files" element={<Files />} />
+            <Route path="/" element={<ProtectedRoute isAuthenticated={!!token}><Dashboard /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute isAuthenticated={!!token}><Users user={user} /></ProtectedRoute>} />
+            <Route path="/restaurants" element={<ProtectedRoute isAuthenticated={!!token}><Restaurants /></ProtectedRoute>} />
+            <Route path="/menu" element={<ProtectedRoute isAuthenticated={!!token}><Menu /></ProtectedRoute>} />
+            <Route path="/orders" element={<ProtectedRoute isAuthenticated={!!token}><Orders user={user} /></ProtectedRoute>} />
+            <Route path="/reviews" element={<ProtectedRoute isAuthenticated={!!token}><Reviews user={user} /></ProtectedRoute>} />
+            <Route path="/analytics" element={<ProtectedRoute isAuthenticated={!!token}><Analytics /></ProtectedRoute>} />
+            <Route path="/files" element={<ProtectedRoute isAuthenticated={!!token}><Files /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>

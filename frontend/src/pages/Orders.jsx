@@ -65,10 +65,12 @@ export default function OrdersPage({ user }) {
   // ── Create form state ───────────────────────────────────
   const [showForm, setShowForm] = useState(false);
   const [restaurants, setRestaurants] = useState([]);
+  const [userDirecciones, setUserDirecciones] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [menuLoading, setMenuLoading] = useState(false);
   const [form, setForm] = useState({
     restaurante_id: '',
+    direccion_idx: '',
     calle: '',
     zona: '',
     ciudad: '',
@@ -135,7 +137,12 @@ export default function OrdersPage({ user }) {
     getRestaurantes()
       .then((res) => setRestaurants(Array.isArray(res.data) ? res.data : []))
       .catch(() => setRestaurants([]));
-  }, [loadOrders, loadStatusCounts]);
+    
+    // Load user addresses if user object is available
+    if (user && user.direcciones && Array.isArray(user.direcciones)) {
+      setUserDirecciones(user.direcciones);
+    }
+  }, [loadOrders, loadStatusCounts, user]);
 
   // ── Load menu when restaurant selected ──────────────────
   useEffect(() => {
@@ -176,8 +183,24 @@ export default function OrdersPage({ user }) {
     loadStatusCounts();
   };
 
-  const handleChange = (e) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+    
+    // If user selects a saved address, populate fields
+    if (name === 'direccion_idx' && value !== '') {
+      const idx = parseInt(value);
+      if (userDirecciones[idx]) {
+        const addr = userDirecciones[idx];
+        setForm((f) => ({
+          ...f,
+          calle: addr.calle || '',
+          zona: (addr.zona || '').toString(),
+          ciudad: addr.ciudad || '',
+        }));
+      }
+    }
+  };
 
   const toggleMenuItem = (item) => {
     setSelectedItems((prev) => {
@@ -227,7 +250,7 @@ export default function OrdersPage({ user }) {
       setMsg('Order created successfully');
       setShowForm(false);
       setSelectedItems([]);
-      setForm({ restaurante_id: '', calle: '', zona: '', ciudad: '' });
+      setForm({ restaurante_id: '', direccion_idx: '', calle: '', zona: '', ciudad: '' });
       refreshAll();
     } catch (err) {
       setMsg(err.response?.data?.error || 'Error creating order');
@@ -538,6 +561,29 @@ export default function OrdersPage({ user }) {
                 ))}
               </select>
             </div>
+
+            {/* Saved addresses selector */}
+            {userDirecciones.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Saved Addresses
+                </label>
+                <select
+                  name="direccion_idx"
+                  value={form.direccion_idx}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Or use saved address...</option>
+                  {userDirecciones.map((addr, idx) => (
+                    <option key={idx} value={idx}>
+                      {addr.calle}, Z.{addr.zona}, {addr.ciudad}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <FormInput
               label="Street"
               name="calle"

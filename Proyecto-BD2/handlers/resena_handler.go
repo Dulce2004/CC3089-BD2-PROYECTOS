@@ -8,6 +8,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func GetResenas(c *gin.Context) {
+	resenas, err := services.ObtenerResenas()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resenas)
+}
+
+func GetResenasPorRestaurante(c *gin.Context) {
+	restauranteID := c.Param("id")
+	resenas, err := services.ObtenerResenasPorRestaurante(restauranteID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resenas)
+}
+
 func CreateResena(c *gin.Context) {
 
 	var resena models.Resena

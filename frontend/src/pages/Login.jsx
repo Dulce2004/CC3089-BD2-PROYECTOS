@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import FormInput from '../components/FormInput';
 import { login, register } from '../services/api';
 
@@ -12,15 +12,6 @@ export default function LoginPage({ onLogin }) {
   });
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Auto-login if token already exists
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
-    if (token && user) {
-      onLogin(JSON.parse(user), token);
-    }
-  }, []);
 
   const handleChange = (e) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));

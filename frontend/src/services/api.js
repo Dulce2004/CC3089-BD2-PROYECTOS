@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 const API = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: baseURL,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
@@ -16,6 +18,20 @@ API.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Handle authentication errors (expired token, invalid token, etc.)
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Unauthorized - clear auth data and redirect to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // ── Auth ──────────────────────────────────────────────
 export const login = (data) => API.post('/auth/login', data);
@@ -55,6 +71,8 @@ export const getOrdenesByRestaurante = (id) => API.get(`/restaurantes/${id}/orde
 
 // ── Resenas ───────────────────────────────────────────
 export const createResena = (data) => API.post('/resenas', data);
+export const getResenas = () => API.get('/resenas');
+export const getResenasPorRestaurante = (id) => API.get(`/resenas/restaurante/${id}`);
 
 // ── Analytics ─────────────────────────────────────────
 export const getTopPlatillos = () => API.get('/analytics/top-platillos');
