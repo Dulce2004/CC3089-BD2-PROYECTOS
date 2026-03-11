@@ -9,6 +9,7 @@ import {
   getOrdenes,
   getRestaurantes,
   countOrdenes,
+  getExplainIndices,
 } from '../services/api';
 
 const COLORS = ['#6366f1', '#22c55e', '#f97316', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
@@ -32,12 +33,29 @@ export default function AnalyticsPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // ── Index explain state ────────────────────────────────
+  const [explainResults, setExplainResults] = useState([]);
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [explainRan, setExplainRan] = useState(false);
+
   useEffect(() => {
     loadAll();
   }, []);
 
-  const loadAll = async () => {
+  const runExplain = async () => {
+    setExplainLoading(true);
     try {
+      const res = await getExplainIndices();
+      setExplainResults(Array.isArray(res.data) ? res.data : []);
+      setExplainRan(true);
+    } catch {
+      setExplainResults([]);
+    } finally {
+      setExplainLoading(false);
+    }
+  };
+
+  const loadAll = async () => {    try {
       // Load main data
       const [dishRes, userRes, ordRes, restRes] = await Promise.allSettled([
         getTopPlatillos(),
@@ -245,6 +263,74 @@ export default function AnalyticsPage() {
             <p className="text-gray-400 text-center py-10">No data available</p>
           )}
         </div>
+      </div>
+
+      {/* Index Validation (explain) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">Index Validation — explain()</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Endpoint: GET /analytics/explain-indices &mdash; runs queryPlanner explain() on each of the 5 indices</p>
+          </div>
+          <button
+            onClick={runExplain}
+            disabled={explainLoading}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+          >
+            {explainLoading ? (
+              <span className="flex items-center gap-2"><span className="animate-spin inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> Running...</span>
+            ) : explainRan ? 'Re-run explain()' : 'Run explain()'}
+          </button>
+        </div>
+
+        {explainRan && explainResults.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Index</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Collection</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Filter Used</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Index Name</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Stage</th>
+                  <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Uses Index</th>
+                </tr>
+              </thead>
+              <tbody>
+                {explainResults.map((r, i) => (
+                  <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="py-2.5 px-3 font-medium text-gray-800">{r.indice}</td>
+                    <td className="py-2.5 px-3 text-gray-600">{r.tipo}</td>
+                    <td className="py-2.5 px-3">
+                      <code className="bg-gray-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">{r.coleccion}</code>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <code className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-xs">{r.filtro}</code>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <code className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-xs">{r.index_usado || '—'}</code>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-mono">{r.stage}</span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center">
+                      {r.usa_indice ? (
+                        <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium">✓ Yes</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-medium">✗ No</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!explainRan && (
+          <p className="text-sm text-gray-400 text-center py-4">Click "Run explain()" to validate that each index is being used by MongoDB's query planner.</p>
+        )}
       </div>
 
       {/* MongoDB Concepts Reference */}

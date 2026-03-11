@@ -7,6 +7,7 @@ import {
   getPerfil,
   updatePerfil,
   addDireccion,
+  eliminarDireccion,
   getTopUsuarios,
   getUsuarios,
   deleteUsuario,
@@ -468,19 +469,40 @@ export default function UsersPage({ user }) {
             {addresses.map((addr, idx) => (
               <div
                 key={idx}
-                className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50"
+                className="flex items-start justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50"
               >
-                <MapPin
-                  size={16}
-                  className="text-indigo-500 mt-0.5 shrink-0"
-                />
-                <div className="text-sm text-gray-700">
-                  <p className="font-medium">{addr.calle || 'N/A'}</p>
-                  <p className="text-gray-500">
-                    Zone {addr.zona || 0}, {addr.ciudad || 'N/A'}
-                    {addr.coordenadas ? ` -- ${addr.coordenadas}` : ''}
-                  </p>
+                <div className="flex items-start gap-3">
+                  <MapPin
+                    size={16}
+                    className="text-indigo-500 mt-0.5 shrink-0"
+                  />
+                  <div className="text-sm text-gray-700">
+                    <p className="font-medium">{addr.calle || 'N/A'}</p>
+                    <p className="text-gray-500">
+                      Zone {addr.zona || 0}, {addr.ciudad || 'N/A'}
+                      {addr.coordenadas ? ` -- ${addr.coordenadas}` : ''}
+                    </p>
+                  </div>
                 </div>
+                <button
+                  onClick={async () => {
+                    if (!confirm('Remove this address?')) return;
+                    try {
+                      const userId = profile?.id || profile?._id;
+                      await eliminarDireccion(userId, addr.calle);
+                      setAddressMsg('Address removed successfully');
+                      const res = await getPerfil();
+                      setProfile(res.data);
+                    } catch (err) {
+                      setAddressMsg(err.response?.data?.error || 'Error removing address');
+                    }
+                    setTimeout(() => setAddressMsg(''), 4000);
+                  }}
+                  className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                  title="Remove address"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             ))}
           </div>

@@ -86,6 +86,7 @@ func SetupRoutes(r *gin.Engine) {
 	// --- ANALYTICS ---
 	r.GET("/analytics/top-platillos", handlers.TopPlatillos)
 	r.GET("/analytics/top-usuarios", handlers.TopUsuarios)
+	r.GET("/analytics/explain-indices", handlers.ExplainIndices)
 
 	// --- GRIDFS / ARCHIVOS ---
 	r.POST("/archivos", handlers.UploadImagen)

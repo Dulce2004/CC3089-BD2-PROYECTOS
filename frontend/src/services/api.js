@@ -84,6 +84,7 @@ export const deleteResena = (id) => API.delete(`/resenas/${id}`);
 // ── Analytics ─────────────────────────────────────────
 export const getTopPlatillos = () => API.get('/analytics/top-platillos');
 export const getTopUsuarios = () => API.get('/analytics/top-usuarios');
+export const getExplainIndices = () => API.get('/analytics/explain-indices');
 
 // ── Archivos (GridFS) ─────────────────────────────────
 export const uploadArchivo = (formData) =>

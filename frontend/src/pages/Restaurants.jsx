@@ -13,6 +13,8 @@ import {
   getRestaurantesCerca,
   searchRestaurantes,
   getCategorias,
+  agregarCategoria,
+  eliminarCategoria,
 } from '../services/api';
 
 const ITEMS_PER_PAGE = 8;
@@ -51,8 +53,9 @@ export default function RestaurantsPage() {
 
   // ── Edit modal state ─────────────────────────────────
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ nombre: '', categorias: '' });
-
+  const [editForm, setEditForm] = useState({ nombre: '', categorias: '' });  const [editCatInput, setEditCatInput] = useState('');
+  const [editCatMsg, setEditCatMsg] = useState('');
+  const [editCatList, setEditCatList] = useState([]);
   // ── Helpers ──────────────────────────────────────────
   const safeArray = (val) => (Array.isArray(val) ? val : []);
 
@@ -141,12 +144,18 @@ export default function RestaurantsPage() {
         nombre: data.nombre || '',
         categorias: safeArray(data.categorias).join(', '),
       });
+      setEditCatList(safeArray(data.categorias));
+      setEditCatInput('');
+      setEditCatMsg('');
     } catch {
       setEditingId(restaurant.id || restaurant._id);
       setEditForm({
         nombre: restaurant.nombre || '',
         categorias: safeArray(restaurant.categorias).join(', '),
       });
+      setEditCatList(safeArray(restaurant.categorias));
+      setEditCatInput('');
+      setEditCatMsg('');
     }
   };
 
@@ -622,6 +631,70 @@ export default function RestaurantsPage() {
               onChange={handleEditChange}
               placeholder="Italian, Pizza, Fast Food"
             />
+
+            {/* ── Category management via $addToSet / $pull ── */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Manage Categories (<code className="text-indigo-600 text-xs">$addToSet</code> / <code className="text-red-500 text-xs">$pull</code>)</p>
+              <div className="flex flex-wrap gap-1.5 min-h-[32px]">
+                {editCatList.map((c) => (
+                  <span key={c} className="flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full text-xs font-medium">
+                    {c}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await eliminarCategoria(editingId, c);
+                          setEditCatList((prev) => prev.filter((x) => x !== c));
+                          setEditCatMsg(`Removed "${c}" ($pull)`);
+                          loadData();
+                        } catch (err) {
+                          setEditCatMsg(err.response?.data?.error || 'Error removing category');
+                        }
+                        setTimeout(() => setEditCatMsg(''), 3000);
+                      }}
+                      className="text-indigo-400 hover:text-red-500 transition-colors ml-0.5"
+                      title="Remove category ($pull)"
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+                {editCatList.length === 0 && <span className="text-xs text-gray-400">No categories yet</span>}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={editCatInput}
+                  onChange={(e) => setEditCatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+                  placeholder="New category..."
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const cat = editCatInput.trim();
+                    if (!cat) return;
+                    try {
+                      await agregarCategoria(editingId, cat);
+                      setEditCatList((prev) => prev.includes(cat) ? prev : [...prev, cat]);
+                      setEditCatInput('');
+                      setEditCatMsg(`Added "${cat}" ($addToSet)`);
+                      loadData();
+                    } catch (err) {
+                      setEditCatMsg(err.response?.data?.error || 'Error adding category');
+                    }
+                    setTimeout(() => setEditCatMsg(''), 3000);
+                  }}
+                  className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+              {editCatMsg && (
+                <p className={`text-xs ${editCatMsg.includes('Error') ? 'text-red-600' : 'text-green-600'}`}>{editCatMsg}</p>
+              )}
+            </div>
 
             <div className="flex justify-end gap-3 pt-2">
               <button

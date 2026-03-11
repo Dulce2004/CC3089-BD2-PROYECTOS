@@ -30,3 +30,12 @@ func TopUsuarios(c *gin.Context) {
 
 	c.JSON(http.StatusOK, data)
 }
+
+func ExplainIndices(c *gin.Context) {
+	data, err := services.ExplainIndices()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
