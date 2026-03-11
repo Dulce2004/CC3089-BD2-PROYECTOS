@@ -89,3 +89,37 @@ func AgregarDireccionUsuario(usuarioID string, nuevaDireccion models.Direccion) 
 	_, err = collection.UpdateOne(ctx, filtro, actualizacion)
 	return err
 }
+
+// Manejo de Arrays ($pull) - Eliminar dirección del array por calle
+func EliminarDireccionUsuario(usuarioID string, calle string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("usuarios")
+	objID, err := primitive.ObjectIDFromHex(usuarioID)
+	if err != nil {
+		return err
+	}
+
+	filtro := bson.M{"_id": objID}
+	// Usamos $pull para eliminar del array de direcciones donde la calle coincida
+	actualizacion := bson.M{"$pull": bson.M{"direcciones": bson.M{"calle": calle}}}
+
+	_, err = collection.UpdateOne(ctx, filtro, actualizacion)
+	return err
+}
+
+// Eliminar 1 usuario
+func DeleteUsuario(id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("usuarios")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID})
+	return err
+}

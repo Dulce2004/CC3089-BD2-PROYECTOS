@@ -39,6 +39,9 @@ export const register = (data) => API.post('/auth/register', data);
 export const getPerfil = () => API.get('/usuarios/perfil');
 export const updatePerfil = (data) => API.put('/usuarios/perfil', data);
 export const addDireccion = (id, data) => API.put(`/usuarios/${id}/direcciones`, data);
+export const getUsuarios = () => API.get('/usuarios');
+export const deleteUsuario = (id) => API.delete(`/usuarios/${id}`);
+export const eliminarDireccion = (id, data) => API.delete(`/usuarios/${id}/direcciones`, { data });
 
 // ── Restaurantes ──────────────────────────────────────
 export const getRestaurantes = () => API.get('/restaurantes');
@@ -46,6 +49,8 @@ export const getRestaurante = (id) => API.get(`/restaurantes/${id}`);
 export const createRestaurante = (data) => API.post('/restaurantes', data);
 export const updateRestaurante = (id, data) => API.put(`/restaurantes/${id}`, data);
 export const deleteRestaurante = (id) => API.delete(`/restaurantes/${id}`);
+export const agregarCategoria = (id, data) => API.post(`/restaurantes/${id}/categorias`, data);
+export const eliminarCategoria = (id, data) => API.delete(`/restaurantes/${id}/categorias`, { data });
 export const buscarRestaurantes = (nombre) => API.get(`/restaurantes/buscar?nombre=${encodeURIComponent(nombre)}`);
 export const searchRestaurantes = (params) => API.get('/restaurantes/search', { params });
 export const getRestaurantesPorCategoria = (cat) => API.get(`/restaurantes/categoria?cat=${encodeURIComponent(cat)}`);
@@ -73,6 +78,8 @@ export const getOrdenesByRestaurante = (id) => API.get(`/restaurantes/${id}/orde
 export const createResena = (data) => API.post('/resenas', data);
 export const getResenas = () => API.get('/resenas');
 export const getResenasPorRestaurante = (id) => API.get(`/resenas/restaurante/${id}`);
+export const updateResena = (id, data) => API.put(`/resenas/${id}`, data);
+export const deleteResena = (id) => API.delete(`/resenas/${id}`);
 
 // ── Analytics ─────────────────────────────────────────
 export const getTopPlatillos = () => API.get('/analytics/top-platillos');
@@ -87,5 +94,6 @@ export const getArchivoUrl = (id) => `http://localhost:8080/archivos/${id}`;
 
 // ── Bulk ──────────────────────────────────────────────
 export const bulkInsertOrdenes = (cantidad) => API.post(`/bulk/ordenes?cantidad=${cantidad}`);
+export const bulkInsertTodo = (cantidad) => API.post(`/bulk/todo?cantidad=${cantidad}`);
 
 export default API;

@@ -20,9 +20,12 @@ func SetupRoutes(r *gin.Engine) {
 	usuarios := r.Group("/usuarios")
 	usuarios.Use(middleware.AuthRequired())
 	{
+		usuarios.GET("", handlers.GetUsuarios)
 		usuarios.GET("/perfil", handlers.GetPerfil)
 		usuarios.PUT("/perfil", handlers.UpdatePerfil)
 		usuarios.PUT("/:id/direcciones", handlers.AddDireccionUsuario)
+		usuarios.DELETE("/:id/direcciones", handlers.EliminarDireccionUsuario) // $pull
+		usuarios.DELETE("/:id", handlers.DeleteUsuario)
 	}
 
 	// --- RESTAURANTES ---
@@ -38,6 +41,8 @@ func SetupRoutes(r *gin.Engine) {
 		restaurantes.GET("/:id", handlers.GetRestauranteByID)
 		restaurantes.PUT("/:id", handlers.UpdateRestaurante)
 		restaurantes.DELETE("/:id", handlers.DeleteRestaurante)
+		restaurantes.POST("/:id/categorias", handlers.AgregarCategoriaRestaurante)    // $addToSet
+		restaurantes.DELETE("/:id/categorias", handlers.EliminarCategoriaRestaurante) // $pull
 
 		// Menú por restaurante
 		restaurantes.POST("/:id/menu", handlers.CreateArticuloMenu)
@@ -74,6 +79,8 @@ func SetupRoutes(r *gin.Engine) {
 		resenas.POST("", handlers.CreateResena)
 		resenas.GET("", handlers.GetResenas)
 		resenas.GET("/restaurante/:id", handlers.GetResenasPorRestaurante)
+		resenas.PUT("/:id", handlers.UpdateResena)
+		resenas.DELETE("/:id", handlers.DeleteResena)
 	}
 
 	// --- ANALYTICS ---

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileImage, Download, CheckCircle, Upload, Database, Zap } from 'lucide-react';
 import FileUpload from '../components/FileUpload';
-import { uploadArchivo, getArchivoUrl, bulkInsertOrdenes } from '../services/api';
+import { uploadArchivo, getArchivoUrl, bulkInsertTodo } from '../services/api';
 
 export default function FilesPage() {
   // ── File Management State ──────────────────────────
@@ -232,7 +232,7 @@ export default function FilesPage() {
               <h4 className="text-sm font-semibold text-amber-800 mb-1">How BulkWrite Works</h4>
               <p className="text-sm text-amber-700 leading-relaxed">
                 BulkWrite inserts many documents efficiently in a single operation.
-                This demonstrates MongoDB's bulk write capabilities.
+                This generates <strong>users, restaurants, menu items, orders and reviews</strong> with valid references between them.
               </p>
             </div>
           </div>
@@ -254,7 +254,7 @@ export default function FilesPage() {
 
         {/* Bulk Insert Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Generate Test Orders</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Generate All Data (Bulk)</h3>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 mb-4">
             <div className="w-full sm:w-auto">
@@ -297,7 +297,7 @@ export default function FilesPage() {
               ) : (
                 <>
                   <Zap size={16} />
-                  Generate Test Orders
+                  Generate All Data
                 </>
               )}
             </button>
@@ -313,7 +313,7 @@ export default function FilesPage() {
                 </svg>
                 <div>
                   <p className="text-sm font-medium text-amber-800">
-                    Inserting {bulkCantidad.toLocaleString()} orders...
+                    Generating data for ~{bulkCantidad.toLocaleString()} orders...
                   </p>
                   <p className="text-xs text-amber-600 mt-0.5">
                     This may take a moment depending on the quantity. Please wait.
@@ -331,15 +331,23 @@ export default function FilesPage() {
                 <div>
                   <p className="text-sm font-semibold text-green-800">Bulk Insert Complete</p>
                   <div className="mt-2 space-y-1">
-                    <p className="text-sm text-green-700">
-                      Documents created:{' '}
-                      <span className="font-bold">{bulkResult.documentos_creados?.toLocaleString()}</span>
-                    </p>
-                    <p className="text-sm text-green-700">
-                      Status: <span className="font-medium">{bulkResult.status}</span>
-                    </p>
-                    {bulkResult.message && (
-                      <p className="text-sm text-green-600">{bulkResult.message}</p>
+                    {bulkResult.usuarios_creados != null && (
+                      <p className="text-sm text-green-700">Users: <span className="font-bold">{bulkResult.usuarios_creados?.toLocaleString()}</span></p>
+                    )}
+                    {bulkResult.restaurantes_creados != null && (
+                      <p className="text-sm text-green-700">Restaurants: <span className="font-bold">{bulkResult.restaurantes_creados?.toLocaleString()}</span></p>
+                    )}
+                    {bulkResult.articulos_menu_creados != null && (
+                      <p className="text-sm text-green-700">Menu items: <span className="font-bold">{bulkResult.articulos_menu_creados?.toLocaleString()}</span></p>
+                    )}
+                    {bulkResult.ordenes_creadas != null && (
+                      <p className="text-sm text-green-700">Orders: <span className="font-bold">{bulkResult.ordenes_creadas?.toLocaleString()}</span></p>
+                    )}
+                    {bulkResult.resenas_creadas != null && (
+                      <p className="text-sm text-green-700">Reviews: <span className="font-bold">{bulkResult.resenas_creadas?.toLocaleString()}</span></p>
+                    )}
+                    {bulkResult.documentos_creados != null && (
+                      <p className="text-sm text-green-700">Total: <span className="font-bold">{bulkResult.documentos_creados?.toLocaleString()}</span></p>
                     )}
                   </div>
                 </div>
@@ -349,7 +357,7 @@ export default function FilesPage() {
 
           {/* Warning */}
           <p className="text-xs text-gray-400 italic">
-            This creates test orders in the database for volume testing purposes.
+            Generates users, restaurants, menu items, orders, and reviews with valid cross-references for volume testing.
           </p>
         </div>
       </section>

@@ -47,3 +47,29 @@ func CreateResena(c *gin.Context) {
 		"message": "reseña creada con transacción",
 	})
 }
+
+func UpdateResena(c *gin.Context) {
+	id := c.Param("id")
+	var body struct {
+		Calificacion int    `json:"calificacion" binding:"required"`
+		Comentario   string `json:"comentario" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := services.UpdateResena(id, body.Calificacion, body.Comentario); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Reseña actualizada"})
+}
+
+func DeleteResena(c *gin.Context) {
+	id := c.Param("id")
+	if err := services.DeleteResena(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Reseña eliminada"})
+}

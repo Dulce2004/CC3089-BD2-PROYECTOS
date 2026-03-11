@@ -10,6 +10,7 @@ import {
   getOrdenes,
   getTopPlatillos,
   getTopUsuarios,
+  getUsuarios,
 } from '../services/api';
 
 const COLORS = ['#6366f1', '#22c55e', '#f97316', '#ef4444', '#8b5cf6', '#06b6d4'];
@@ -40,30 +41,32 @@ export default function Dashboard() {
 
   const loadData = async () => {
     try {
-      const [restRes, ordRes, dishRes, userRes] = await Promise.allSettled([
+      const [restRes, ordRes, dishRes, userRes, allUsersRes] = await Promise.allSettled([
         getRestaurantes(),
         getOrdenes(),
         getTopPlatillos(),
         getTopUsuarios(),
+        getUsuarios(),
       ]);
 
       const restaurants = restRes.status === 'fulfilled' ? (restRes.value.data || []) : [];
       const orders = ordRes.status === 'fulfilled' ? (ordRes.value.data || []) : [];
       const dishes = dishRes.status === 'fulfilled' ? (dishRes.value.data || []) : [];
       const users = userRes.status === 'fulfilled' ? (userRes.value.data || []) : [];
+      const allUsers = allUsersRes.status === 'fulfilled' ? (allUsersRes.value.data || []) : [];
 
       // Ensure arrays
       const safeOrders = Array.isArray(orders) ? orders : [];
       const safeRestaurants = Array.isArray(restaurants) ? restaurants : [];
       const safeDishes = Array.isArray(dishes) ? dishes : [];
       const safeUsers = Array.isArray(users) ? users : [];
+      const safeAllUsers = Array.isArray(allUsers) ? allUsers : [];
 
-      // Compute stats
+      // Compute stats — use real user count from /usuarios
       const revenue = safeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-      const uniqueUsers = new Set(safeOrders.map((o) => o.usuario_id)).size;
 
       setStats({
-        users: Math.max(uniqueUsers, safeUsers.length, 1),
+        users: safeAllUsers.length || safeUsers.length,
         restaurants: safeRestaurants.length,
         orders: safeOrders.length,
         revenue,

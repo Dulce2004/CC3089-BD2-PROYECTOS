@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, UserPlus, MapPin, Edit3, User } from 'lucide-react';
+import { Search, UserPlus, MapPin, Edit3, User, Trash2 } from 'lucide-react';
 import DataTable from '../components/DataTable';
 import FormInput from '../components/FormInput';
 import {
@@ -8,6 +8,8 @@ import {
   updatePerfil,
   addDireccion,
   getTopUsuarios,
+  getUsuarios,
+  deleteUsuario,
 } from '../services/api';
 
 const ITEMS_PER_PAGE = 8;
@@ -45,11 +47,17 @@ export default function UsersPage({ user }) {
   const [topLoading, setTopLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-
+  // ── All users state ───────────────────────────────────
+  const [allUsers, setAllUsers] = useState([]);
+  const [allUsersLoading, setAllUsersLoading] = useState(true);
+  const [allUsersMsg, setAllUsersMsg] = useState('');
+  const [allSearch, setAllSearch] = useState('');
+  const [allPage, setAllPage] = useState(1);
   // ── Load profile on mount ────────────────────────────
   useEffect(() => {
     loadProfile();
     loadTopUsers();
+    loadAllUsers();
   }, []);
 
   const loadProfile = async () => {
@@ -90,6 +98,30 @@ export default function UsersPage({ user }) {
       setTopUsers([]);
     } finally {
       setTopLoading(false);
+    }
+  };
+
+  const loadAllUsers = async () => {
+    setAllUsersLoading(true);
+    try {
+      const res = await getUsuarios();
+      const data = Array.isArray(res.data) ? res.data : [];
+      setAllUsers(data);
+    } catch {
+      setAllUsers([]);
+    } finally {
+      setAllUsersLoading(false);
+    }
+  };
+
+  const handleDeleteUsuario = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    try {
+      await deleteUsuario(id);
+      setAllUsersMsg('User deleted successfully');
+      loadAllUsers();
+    } catch (err) {
+      setAllUsersMsg(err.response?.data?.error || 'Error deleting user');
     }
   };
 
@@ -538,10 +570,79 @@ export default function UsersPage({ user }) {
         )}
       </div>
 
-      {/* ─── SECTION 4: Top Users ───────────────────────── */}
+      {/* ─── SECTION 4: All Users (CRUD - Delete) ───────── */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <User size={20} className="text-indigo-600" />
+            <h3 className="text-lg font-semibold text-gray-800">All Users</h3>
+            {!allUsersLoading && (
+              <span className="text-xs font-medium text-white bg-indigo-500 px-2 py-0.5 rounded-full">
+                {allUsers.length}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={loadAllUsers}
+            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <MsgBanner msg={allUsersMsg} />
+
+        <div className="relative max-w-md mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <input
+            type="text"
+            value={allSearch}
+            onChange={(e) => { setAllSearch(e.target.value); setAllPage(1); }}
+            placeholder="Search by name or email..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        {allUsersLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin h-7 w-7 border-4 border-indigo-500 border-t-transparent rounded-full" />
+          </div>
+        ) : allUsers.length === 0 ? (
+          <p className="text-gray-400 text-sm py-4">No users found.</p>
+        ) : (
+          <div className="overflow-y-auto max-h-96 space-y-2 pr-1">
+            {allUsers
+              .filter(
+                (u) =>
+                  (u.nombre || '').toLowerCase().includes(allSearch.toLowerCase()) ||
+                  (u.correo || '').toLowerCase().includes(allSearch.toLowerCase())
+              )
+              .map((u) => (
+                <div
+                  key={u.id || u._id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{u.nombre || 'N/A'}</p>
+                    <p className="text-xs text-gray-500">{u.correo || 'N/A'} &middot; {u.telefono || 'N/A'}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteUsuario(u.id || u._id)}
+                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete user"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+
+      {/* ─── SECTION 5: Top Users ───────────────────────── */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-800">Top Users</h3>
+          <h3 className="text-lg font-semibold text-gray-800">Top Users (by spending)</h3>
         </div>
 
         {/* Search */}

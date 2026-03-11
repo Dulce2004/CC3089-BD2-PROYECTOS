@@ -34,13 +34,8 @@ func CreateOrden(c *gin.Context) {
 }
 
 func GetOrdenes(c *gin.Context) {
-	// Si hay user_id en el contexto JWT, filtrar por usuario
-	userID := ""
-	if uid, exists := c.Get("user_id"); exists {
-		userID, _ = uid.(string)
-	}
-
-	ordenes, err := services.GetOrdenes(userID)
+	// Devolver todas las órdenes (vista de administrador)
+	ordenes, err := services.GetOrdenes("")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -11,7 +11,6 @@ import {
   countOrdenes,
   updateEstadoMasivo,
   deleteOrdenesMasivo,
-  getOrdenesByRestaurante,
   getRestaurantes,
   getMenu,
 } from '../services/api';
@@ -91,11 +90,8 @@ export default function OrdersPage({ user }) {
   const [detailOrder, setDetailOrder] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
 
-  // ── View by restaurant state ────────────────────────────
-  const [restFilterId, setRestFilterId] = useState('');
-  const [restOrders, setRestOrders] = useState([]);
-  const [restOrdersLoading, setRestOrdersLoading] = useState(false);
-  const [restPage, setRestPage] = useState(1);
+  // ── Restaurant filter state ──────────────────────────────
+  const [restaurantFilter, setRestaurantFilter] = useState('');
 
   // ── Load orders ─────────────────────────────────────────
   const loadOrders = useCallback(async () => {
@@ -160,20 +156,6 @@ export default function OrdersPage({ user }) {
     }
     setSelectedItems([]);
   }, [form.restaurante_id]);
-
-  // ── Load restaurant orders ──────────────────────────────
-  useEffect(() => {
-    if (!restFilterId) {
-      setRestOrders([]);
-      return;
-    }
-    setRestOrdersLoading(true);
-    getOrdenesByRestaurante(restFilterId)
-      .then((res) => setRestOrders(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setRestOrders([]))
-      .finally(() => setRestOrdersLoading(false));
-    setRestPage(1);
-  }, [restFilterId]);
 
   // ── Helpers ─────────────────────────────────────────────
   const clearMsg = () => setTimeout(() => setMsg(''), 5000);
@@ -329,7 +311,10 @@ export default function OrdersPage({ user }) {
   };
 
   // ── Filter and sort ─────────────────────────────────────
-  const filtered = (orders || []).filter((o) => !filter || o?.estado === filter);
+  const filtered = (orders || []).filter((o) =>
+    (!filter || o?.estado === filter) &&
+    (!restaurantFilter || o?.restaurante_id === restaurantFilter)
+  );
   const sorted = [...filtered].sort((a, b) => {
     const da = new Date(a?.fecha_pedido || 0);
     const db = new Date(b?.fecha_pedido || 0);
@@ -340,18 +325,6 @@ export default function OrdersPage({ user }) {
   const pageData = sorted.slice(
     (page - 1) * ITEMS_PER_PAGE,
     page * ITEMS_PER_PAGE
-  );
-
-  // ── Restaurant orders pagination ────────────────────────
-  const restSorted = [...(restOrders || [])].sort((a, b) => {
-    const da = new Date(a?.fecha_pedido || 0);
-    const db = new Date(b?.fecha_pedido || 0);
-    return db - da;
-  });
-  const restTotalPages = Math.max(1, Math.ceil(restSorted.length / ITEMS_PER_PAGE));
-  const restPageData = restSorted.slice(
-    (restPage - 1) * ITEMS_PER_PAGE,
-    restPage * ITEMS_PER_PAGE
   );
 
   // ── Table columns ───────────────────────────────────────
@@ -436,47 +409,6 @@ export default function OrdersPage({ user }) {
           <Trash2 size={15} />
         </button>
       ),
-    },
-  ];
-
-  const restColumns = [
-    {
-      key: 'id',
-      label: 'Order ID',
-      render: (r) => (
-        <span className="font-mono text-xs">{(r.id || '').slice(-8)}</span>
-      ),
-    },
-    {
-      key: 'estado',
-      label: 'Status',
-      render: (r) => (
-        <span
-          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-            STATUS_COLORS[r.estado] || 'bg-gray-100 text-gray-700'
-          }`}
-        >
-          {STATUS_LABELS[r.estado] || r.estado}
-        </span>
-      ),
-    },
-    {
-      key: 'items',
-      label: 'Items',
-      render: (r) => (Array.isArray(r.items) ? r.items : []).length,
-    },
-    {
-      key: 'total',
-      label: 'Total',
-      render: (r) => `Q${(r.total ?? 0).toFixed(2)}`,
-    },
-    {
-      key: 'fecha_pedido',
-      label: 'Date',
-      render: (r) =>
-        r.fecha_pedido
-          ? new Date(r.fecha_pedido).toLocaleDateString()
-          : '-',
     },
   ];
 
@@ -794,7 +726,7 @@ export default function OrdersPage({ user }) {
       )}
 
       {/* ── 4. Filter / Sort Bar ───────────────────────── */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
         <div className="flex items-center gap-2">
           <Filter size={16} className="text-gray-400" />
           <select
@@ -812,6 +744,21 @@ export default function OrdersPage({ user }) {
             ))}
           </select>
         </div>
+        <select
+          value={restaurantFilter}
+          onChange={(e) => {
+            setRestaurantFilter(e.target.value);
+            setPage(1);
+          }}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="">All Restaurants</option>
+          {(restaurants || []).map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.nombre}
+            </option>
+          ))}
+        </select>
         <button
           onClick={() => setSortDesc(!sortDesc)}
           className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 px-3 py-2 rounded-lg transition-colors"
@@ -949,51 +896,6 @@ export default function OrdersPage({ user }) {
         </div>
       )}
 
-      {/* ── 6. View by Restaurant ──────────────────────── */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
-        <h3 className="text-lg font-semibold text-gray-800">
-          View Orders by Restaurant
-        </h3>
-        <p className="text-xs text-gray-400">
-          Public endpoint -- no authentication required
-        </p>
-        <div className="flex items-center gap-3">
-          <select
-            value={restFilterId}
-            onChange={(e) => setRestFilterId(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Select a restaurant...</option>
-            {(restaurants || []).map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.nombre}
-              </option>
-            ))}
-          </select>
-          {restFilterId && (
-            <span className="text-xs text-gray-400">
-              {restSorted.length} order{restSorted.length !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-
-        {restFilterId && (
-          restOrdersLoading ? (
-            <div className="flex justify-center py-6">
-              <div className="animate-spin h-6 w-6 border-3 border-indigo-500 border-t-transparent rounded-full" />
-            </div>
-          ) : (
-            <DataTable
-              columns={restColumns}
-              data={restPageData}
-              page={restPage}
-              totalPages={restTotalPages}
-              onPageChange={setRestPage}
-              emptyMessage="No orders for this restaurant"
-            />
-          )
-        )}
-      </div>
     </div>
   );
 }

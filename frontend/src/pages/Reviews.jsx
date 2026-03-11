@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Star, Plus, MessageSquare } from 'lucide-react';
+import { Star, Plus, MessageSquare, Edit3, Trash2 } from 'lucide-react';
 import FormInput from '../components/FormInput';
 import {
   getRestaurantes,
   getOrdenesByRestaurante,
   createResena,
   getResenasPorRestaurante,
+  updateResena,
+  deleteResena,
 } from '../services/api';
 
 export default function ReviewsPage({ user }) {
@@ -24,6 +26,11 @@ export default function ReviewsPage({ user }) {
     calificacion: 5,
     comentario: '',
   });
+
+  // ── Edit review state ────────────────────────────────
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ calificacion: 5, comentario: '' });
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   // ── Load restaurants on mount ──────────────────────────
   useEffect(() => {
@@ -136,6 +143,44 @@ export default function ReviewsPage({ user }) {
       setMsgType('error');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleEditStart = (review) => {
+    setEditingId(review._id || review.id);
+    setEditForm({ calificacion: review.calificacion || 5, comentario: review.comentario || '' });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditSubmitting(true);
+    try {
+      await updateResena(editingId, {
+        calificacion: Number(editForm.calificacion),
+        comentario: editForm.comentario,
+      });
+      setMsg('Review updated successfully');
+      setMsgType('success');
+      setEditingId(null);
+      if (selectedRestaurant) loadOrders(selectedRestaurant);
+    } catch (err) {
+      setMsg(err?.response?.data?.error || 'Error updating review');
+      setMsgType('error');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDeleteResena = async (id) => {
+    if (!window.confirm('Delete this review?')) return;
+    try {
+      await deleteResena(id);
+      setMsg('Review deleted successfully');
+      setMsgType('success');
+      if (selectedRestaurant) loadOrders(selectedRestaurant);
+    } catch (err) {
+      setMsg(err?.response?.data?.error || 'Error deleting review');
+      setMsgType('error');
     }
   };
 
@@ -559,41 +604,109 @@ export default function ReviewsPage({ user }) {
             </div>
           ) : (
             <div className="space-y-3">
-              {resenas.slice(0, 10).map((review, idx) => (
+              {resenas.slice(0, 10).map((review, idx) => {
+                const reviewId = review._id || review.id;
+                const isEditing = editingId === reviewId;
+                return (
                 <div
                   key={idx}
                   className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="font-semibold text-gray-800">
-                        ⭐ {review.calificacion}/5
+                  {isEditing ? (
+                    <form onSubmit={handleEditSubmit} className="space-y-3">
+                      <div className="flex items-center gap-1 mb-2">
+                        {[1, 2, 3, 4, 5].map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setEditForm((f) => ({ ...f, calificacion: val }))}
+                            className="p-1 rounded hover:bg-yellow-50 transition-colors"
+                          >
+                            <Star
+                              size={22}
+                              className={
+                                val <= editForm.calificacion
+                                  ? 'text-yellow-400 fill-yellow-400'
+                                  : 'text-gray-300'
+                              }
+                            />
+                          </button>
+                        ))}
+                        <span className="text-sm text-gray-500 ml-2">{editForm.calificacion}/5</span>
+                      </div>
+                      <textarea
+                        value={editForm.comentario}
+                        onChange={(e) => setEditForm((f) => ({ ...f, comentario: e.target.value }))}
+                        required
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Edit your comment..."
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(null)}
+                          className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={editSubmitting}
+                          className="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                        >
+                          {editSubmitting ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-semibold text-gray-800">⭐ {review.calificacion}/5</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {review.fecha_resena
+                              ? new Date(review.fecha_resena).toLocaleDateString('es-ES')
+                              : '—'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="flex gap-0.5">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                size={16}
+                                className={
+                                  i < (review.calificacion || 0)
+                                    ? 'text-yellow-400 fill-yellow-400'
+                                    : 'text-gray-200'
+                                }
+                              />
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => handleEditStart(review)}
+                            className="ml-2 p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Edit review"
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteResena(reviewId)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete review"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {review.comentario || '(Sin comentario)'}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {review.fecha_resena
-                          ? new Date(review.fecha_resena).toLocaleDateString('es-ES')
-                          : '—'}
-                      </p>
-                    </div>
-                    <div className="flex gap-0.5">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          size={16}
-                          className={
-                            i < (review.calificacion || 0)
-                              ? 'text-yellow-400 fill-yellow-400'
-                              : 'text-gray-200'
-                          }
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-700 leading-relaxed">
-                    {review.comentario || '(Sin comentario)'}
-                  </p>
+                    </>
+                  )}
                 </div>
-              ))}
+              );})}
               {resenas.length > 10 && (
                 <p className="text-sm text-gray-500 text-center mt-4">
                   +{resenas.length - 10} more reviews

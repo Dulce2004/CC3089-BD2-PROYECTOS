@@ -60,5 +60,11 @@ func InitIndices(db *mongo.Database) {
 		Keys: bson.D{{Key: "ubicacion", Value: "2dsphere"}},
 	})
 
+	// 5. Índice de Texto (Restaurantes - búsqueda por nombre y descripción)
+	db.Collection("restaurantes").Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "nombre", Value: "text"}},
+		Options: options.Index().SetName("text_nombre_restaurante"),
+	})
+
 	fmt.Println("🚀 Índices verificados/creados exitosamente")
 }

@@ -176,6 +176,44 @@ func DeleteRestaurante(id string) error {
 	return err
 }
 
+// Manejo de Arrays ($addToSet) - Agrega categoría sin duplicados
+func AgregarCategoriaRestaurante(restauranteID string, categoria string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("restaurantes")
+	objID, err := primitive.ObjectIDFromHex(restauranteID)
+	if err != nil {
+		return err
+	}
+
+	// $addToSet agrega solo si el valor no existe en el array (sin duplicados)
+	_, err = collection.UpdateOne(ctx,
+		bson.M{"_id": objID},
+		bson.M{"$addToSet": bson.M{"categorias": categoria}},
+	)
+	return err
+}
+
+// Manejo de Arrays ($pull) - Elimina categoría del array
+func EliminarCategoriaRestaurante(restauranteID string, categoria string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	collection := config.DB.Collection("restaurantes")
+	objID, err := primitive.ObjectIDFromHex(restauranteID)
+	if err != nil {
+		return err
+	}
+
+	// $pull elimina todas las ocurrencias del valor en el array
+	_, err = collection.UpdateOne(ctx,
+		bson.M{"_id": objID},
+		bson.M{"$pull": bson.M{"categorias": categoria}},
+	)
+	return err
+}
+
 // BuscarPorNombre usa regex sobre el campo nombre (index-friendly al inicio)
 func BuscarPorNombre(nombre string) ([]models.Restaurante, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

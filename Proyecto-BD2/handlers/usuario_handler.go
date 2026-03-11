@@ -8,6 +8,40 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func GetUsuarios(c *gin.Context) {
+	usuarios, err := services.GetUsuarios()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, usuarios)
+}
+
+func DeleteUsuario(c *gin.Context) {
+	id := c.Param("id")
+	if err := services.DeleteUsuario(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Usuario eliminado"})
+}
+
+func EliminarDireccionUsuario(c *gin.Context) {
+	usuarioID := c.Param("id")
+	var body struct {
+		Calle string `json:"calle" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Se requiere el campo 'calle'"})
+		return
+	}
+	if err := services.EliminarDireccionUsuario(usuarioID, body.Calle); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Dirección eliminada del arreglo ($pull)"})
+}
+
 func CreateUsuario(c *gin.Context) {
 
 	var usuario models.Usuario

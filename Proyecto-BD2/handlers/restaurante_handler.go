@@ -47,6 +47,38 @@ func GetRestauranteByID(c *gin.Context) {
 	c.JSON(http.StatusOK, restaurante)
 }
 
+func AgregarCategoriaRestaurante(c *gin.Context) {
+	id := c.Param("id")
+	var body struct {
+		Categoria string `json:"categoria" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Se requiere el campo 'categoria'"})
+		return
+	}
+	if err := services.AgregarCategoriaRestaurante(id, body.Categoria); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Categoría agregada al array ($addToSet)"})
+}
+
+func EliminarCategoriaRestaurante(c *gin.Context) {
+	id := c.Param("id")
+	var body struct {
+		Categoria string `json:"categoria" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Se requiere el campo 'categoria'"})
+		return
+	}
+	if err := services.EliminarCategoriaRestaurante(id, body.Categoria); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Categoría eliminada del array ($pull)"})
+}
+
 func UpdateRestaurante(c *gin.Context) {
 	id := c.Param("id")
 
