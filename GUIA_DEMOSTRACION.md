@@ -29,7 +29,7 @@ frontend_app       Up
 
 ## 📊 DEMOSTRACIÓN COMPLETA POR CRITERIO
 
-### ✅ **CRITERIO 1: ÍNDICES (4 tipos)**
+### ✅ **CRITERIO 1: ÍNDICES (5 tipos)**
 
 **Qué mostrar:** Los 4 índices están implementados en la base de datos (transparente para el usuario)
 
@@ -91,6 +91,35 @@ frontend_app       Up
 5. **Resultado:** Muestra restaurantes más cercanos ordenados por distancia
 
 **Qué dice el evaluador:** "Usa búsqueda geoespacial con el índice 2dsphere. ✓"
+
+---
+
+**Índice 5 - TEXTO (nombre en artículos del menú):**
+1. Ir a **Menu**
+2. Usar el campo de búsqueda en la parte superior de la página
+3. Escribir un nombre de platillo: `"Pizza"` o `"Burger"`
+4. **Resultado:** Solo aparecen artículos cuyo nombre contiene la palabra buscada
+5. Esto utiliza el índice de texto en `articulos_menu.nombre` con operador `$text`
+
+**Qué dice el evaluador:** "Usa búsqueda de texto completo con el índice TEXT. ✓"
+
+---
+
+**Validación de Índices con explain():**
+1. Ir a **Analytics** (menú lateral)
+2. Bajar hasta la sección **"Index Validation (explain)"**
+3. **Click en "Run explain()"** botón azul
+4. Esperar unos segundos...
+5. **Ver la tabla de resultados con estas columnas:** Índice | Tipo | Colección | Filtro | Index Name | Stage | Usa Índice
+6. **Confirmar que todos muestran ✓ (verde en columna "Usa Índice")**:
+   - Unique - correo → `EXPRESS_IXSCAN` → ✓
+   - Compound - restaurante+fecha → `IXSCAN` → ✓
+   - Multikey - categorías → `IXSCAN` → ✓
+   - 2dsphere - ubicacion → `GEO_NEAR_2DSPHERE` → ✓
+   - Text - nombre → `TEXT` → ✓
+7. **Endpoint subyacente:** `GET /analytics/explain-indices` — ejecuta `explain("queryPlanner")` contra MongoDB para cada índice
+
+**Qué dice el evaluador:** "Ejecutó explain() y comprobó que MongoDB usa los índices en su query planner. ✓"
 
 ---
 
@@ -382,6 +411,54 @@ curl -X POST http://localhost:8080/bulk/todo
 
 ---
 
+### ✅ **CRITERIO: ARRAYS - $addToSet y $pull en Categorías de Restaurantes**
+
+#### Demostración $addToSet (agregar al array sin duplicados):
+1. Ir a **Restaurants**
+2. Buscar cualquier restaurante
+3. **Click en el botón de edición (lápiz ✏️)**
+4. En el modal de edición, bajar hasta la sección **"Manage Categories"**
+5. Ver las categorías actuales mostradas como chips (etiquetas)
+6. En el campo de texto, escribir una nueva categoría: `"Italiana"`
+7. **Click "Add"**
+8. **Resultado:** Se añade `"Italiana"` al array de categorías; si ya existía, MongoDB NO la duplica — usa `$addToSet`
+9. Intentar agregar la misma categoría nuevamente → no se duplica
+
+**Endpoint:** `POST /restaurantes/:id/categorias` → `$addToSet: {categorias: nueva}`
+
+**Qué dice el evaluador:** "$addToSet agrega la categoría al array sin generar duplicados. ✓"
+
+---
+
+#### Demostración $pull (eliminar del array):
+1. En el mismo modal de edición del restaurante
+2. Ver las categorías como chips con botón **"×"**
+3. **Click en "×"** junto a cualquier categoría
+4. **Resultado:** La categoría desaparece del array de categorías inmediatamente — usa `$pull`
+5. Cerrar modal y reabrir el mismo restaurante → la categoría ya no está
+
+**Endpoint:** `DELETE /restaurantes/:id/categorias` → `$pull: {categorias: valor}`
+
+**Qué dice el evaluador:** "$pull elimina el elemento del array limpiamente. ✓"
+
+---
+
+### ✅ **CRITERIO: ARRAYS - $pull en Direcciones de Usuarios**
+
+#### Demostración $pull para eliminar una dirección guardada:
+1. Ir a **Users** (menú lateral)
+2. Seleccionar un usuario que tenga al menos 2 direcciones (o agregar una dirección primero)
+3. Ver la sección **"Addresses"** con tarjetas de dirección
+4. **Click en el icono 🗑️ (papelera)** junto a una tarjeta de dirección
+5. **Resultado:** La dirección desaparece del array `direcciones` del usuario ($pull)
+6. El perfil del usuario se recarga automáticamente mostrando las direcciones restantes
+
+**Endpoint:** `DELETE /usuarios/:id/direcciones` → `$pull: {direcciones: {calle: valor}}`
+
+**Qué dice el evaluador:** "$pull elimina el sub-documento del array de direcciones. ✓"
+
+---
+
 ### ✅ **CRITERIO 10: GRIDFS - ARCHIVOS**
 
 #### Demostración:
@@ -398,6 +475,44 @@ curl -X POST http://localhost:8080/bulk/todo
 
 7. **Ver la lista de archivos:**
    - Aparece el archivo que acabas de subir
+   - Se muestra: nombre, tamaño, fecha de carga
+
+8. **Descargar el archivo:**
+   - **Click en "Download"** junto al archivo subido
+   - El archivo se descarga con el nombre original
+   - **Resultado:** Archivo descargado correctamente desde GridFS
+
+**Cómo funciona internamente:**
+- Upload: `bucket.OpenUploadStream()` → chunks de 255 KB en `fs.chunks`
+- Download: `bucket.DownloadToStream()` → lee chunks y envía como stream
+- Los archivos viven en `fs.files` (metadata) y `fs.chunks` (binario)
+
+**Qué dice el evaluador:** "GridFS sube y descarga archivos. Los cambios son visibles en la UI. ✓"
+
+---
+
+## 📊 RESUMEN DE CRITERIOS
+
+| Criterio | Descripción | Status |
+|----------|-------------|--------|
+| **Índices (5 tipos)** | Unique, Compound, Multikey, 2dsphere, Text | ✅ |
+| **explain()** | Validación de uso de índices via Analytics | ✅ |
+| **CRUD Embebidos** | ItemOrden, Dirección, Ubicación GeoJSON | ✅ |
+| **CRUD Referenciados** | Lookups entre colecciones | ✅ |
+| **Crear 1 o varios** | CRUD individual + BulkWrite | ✅ |
+| **Lectura** | Filtros, proyecciones, sort, skip, limit | ✅ |
+| **Actualizar 1** | UpdateOne en todas las colecciones | ✅ |
+| **Actualizar varios** | UpdateMany por estado de orden | ✅ |
+| **Eliminar 1** | DeleteOne por ID | ✅ |
+| **Eliminar varios** | DeleteMany por estado de orden | ✅ |
+| **GridFS** | Upload/Download de archivos | ✅ |
+| **Volumen 50k docs** | POST /bulk/todo | ✅ |
+| **Agregaciones simples** | Count, Distinct | ✅ |
+| **Agregaciones complejas** | Pipelines $match/$group/$lookup/$project | ✅ |
+| **Manejo Arrays** | $push, $pull, $addToSet, $unwind | ✅ |
+| **Transacciones** | Reseña + UpdateOrden + RecalculoPromedio | ✅ |
+| **BulkWrite (+5)** | 5 funciones de inserción masiva | ✅ |
+| **Frontend/HCI (+10)** | 9 páginas con UI completa | ✅ |
    - Con botón "Download"
 
 8. **Download:**

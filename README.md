@@ -98,6 +98,8 @@ La aplicación se abre en `http://localhost:5173`.
 | **Índice compuesto** | `restaurante_id` + `fecha_pedido` en órdenes | `config/mongo.go` |
 | **Índice multikey** | `categorias` (array) en restaurantes | `config/mongo.go` |
 | **Índice 2dsphere** | `ubicacion` (GeoJSON) en restaurantes | `config/mongo.go` |
+| **Índice de texto** | `nombre` en artículos del menú para búsqueda `$text` | `config/mongo.go` |
+| **explain() validation** | Verifica que los 5 índices son usados por el query planner | `analytics_service.go` |
 | **Consulta geoespacial** | `$near` para buscar restaurantes cercanos | `restaurante_service.go` |
 | **Aggregation Pipeline** | `$match`, `$unwind`, `$group`, `$sort`, `$limit`, `$lookup`, `$project` | `analytics_service.go` |
 | **Transacciones** | Inserción atómica de reseña + actualización de orden + recálculo de promedio | `resena_service.go` |
@@ -108,6 +110,8 @@ La aplicación se abre en `http://localhost:5173`.
 | **CountDocuments** | Conteo de documentos con filtro opcional | `orden_service.go` |
 | **Distinct** | Obtener valores únicos de categorías | `restaurante_service.go` |
 | **$push** | Agregar direcciones al array de un usuario | `usuario_service.go` |
+| **$pull** | Eliminar direcciones de usuario y categorías de restaurante | `usuario_service.go`, `restaurante_service.go` |
+| **$addToSet** | Agregar categorías a restaurante sin duplicar | `restaurante_service.go` |
 | **Regex** | Búsqueda de restaurantes por nombre | `restaurante_service.go` |
 | **Proyección** | Seleccionar campos específicos en consultas | `restaurante_service.go` |
 
@@ -131,12 +135,12 @@ La aplicación se abre en `http://localhost:5173`.
 | Grupo | Endpoints | Auth |
 |---|---|---|
 | **Auth** | `POST /auth/register`, `POST /auth/login` | No |
-| **Usuarios** | `GET/PUT /usuarios/perfil`, `PUT /usuarios/:id/direcciones` | JWT |
-| **Restaurantes** | CRUD + búsqueda por nombre, categoría, cercanía | No |
+| **Usuarios** | `GET /usuarios`, `GET/PUT /usuarios/perfil`, `DELETE /usuarios/:id`, `PUT /usuarios/:id/direcciones`, `DELETE /usuarios/:id/direcciones` | JWT |
+| **Restaurantes** | CRUD + búsqueda por nombre, categoría, cercanía, `POST/DELETE /restaurantes/:id/categorias` | No |
 | **Menú** | CRUD de artículos por restaurante | No |
 | **Órdenes** | CRUD + operaciones masivas (UpdateMany, DeleteMany) | JWT |
-| **Reseñas** | `POST /resenas` (transacción) | No |
-| **Analíticas** | `GET /analytics/top-platillos`, `GET /analytics/top-usuarios` | No |
+| **Reseñas** | `POST /resenas` (transacción), `PUT/DELETE /resenas/:id` | No |
+| **Analíticas** | `GET /analytics/top-platillos`, `GET /analytics/top-usuarios`, `GET /analytics/explain-indices` | No |
 | **Archivos** | `POST /archivos`, `GET /archivos/:id` (GridFS) | No |
 | **Bulk** | `POST /bulk/ordenes`, `POST /bulk/todo` | No |
 

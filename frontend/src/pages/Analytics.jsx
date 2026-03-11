@@ -82,7 +82,7 @@ export default function AnalyticsPage() {
       const rawDishes = dishRes.status === 'fulfilled' ? dishRes.value.data : [];
       setTopDishes(
         (Array.isArray(rawDishes) ? rawDishes : []).map((d, i) => ({
-          name: d._id?.articulo ? `Dish ${i + 1}` : `Dish ${i + 1}`,
+          name: d.nombre || `Dish ${i + 1}`,
           cantidad: d.cantidad_total || 0,
           ingresos: d.ingresos || 0,
         }))

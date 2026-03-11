@@ -8,9 +8,9 @@
 
 ## ✅ CRITERIOS DE EVALUACIÓN — DESGLOSE COMPLETO
 
-### 1. 📑 ÍNDICES (4 tipos requeridos)
+### 1. 📑 ÍNDICES (5 tipos requeridos)
 
-**STATUS: ✅ CUMPLIDO — 4/4 ÍNDICES IMPLEMENTADOS**
+**STATUS: ✅ CUMPLIDO — 5/5 ÍNDICES IMPLEMENTADOS**
 
 #### Índice 1: Único (Simple)
 - **Colección:** `usuarios`
@@ -44,6 +44,22 @@
 - **Validación:** Búsqueda de restaurantes cercanos
 - **Endpoint:** `GET /restaurantes/cerca?lat=&lng=&dist=`
 - **✅ ESTADO:** Implementado y validado
+
+#### Índice 5: Texto (Text Index)
+- **Colección:** `articulos_menu`
+- **Campo:** `nombre`
+- **Tipo:** Text Index
+- **Código:** `config/mongo.go`
+- **Validación:** Búsqueda de platillos por nombre mediante `$text: {$search: "..."}`
+- **✅ ESTADO:** Implementado y validado
+
+#### Validación con explain()
+- **Endpoint:** `GET /analytics/explain-indices`
+- **Implementación:** `services/analytics_service.go` — `ExplainIndices()`
+- **Método:** `RunCommand` con `explain("queryPlanner")` sobre cada índice
+- **UI:** Página Analytics → sección "Index Validation (explain)" → botón "Run explain()"
+- **Resultados verificados:** Todos los 5 índices muestran stage de uso de índice (`IXSCAN`, `EXPRESS_IXSCAN`, `GEO_NEAR_2DSPHERE`, `TEXT`)
+- **✅ ESTADO:** Implementado y funcionando
 
 ---
 
@@ -336,9 +352,31 @@ Pipeline:
   - Agrega nueva dirección al array de direcciones del usuario
   - `PUT /usuarios/{id}/direcciones`
 
-**Items en Orden (array embebido):**
-- Array de `ItemOrden` con cantidad, precio, etc.
-- Manipulado en `CreateOrden()` y actualización
+**$pull - Eliminar elemento del array:**
+- `EliminarDireccionUsuario()` en `usuario_service.go`:
+  ```go
+  "$pull": bson.M{"direcciones": bson.M{"calle": calle}}
+  ```
+  - Elimina una dirección del array por su campo `calle`
+  - `DELETE /usuarios/{id}/direcciones`
+  - **UI:** Botón papelera (🗑️) en cada tarjeta de dirección en Users
+
+- `EliminarCategoriaRestaurante()` en `restaurante_service.go`:
+  ```go
+  "$pull": bson.M{"categorias": categoria}
+  ```
+  - Elimina una categoría del array del restaurante
+  - `DELETE /restaurantes/{id}/categorias`
+  - **UI:** Botón × en cada chip de categoría en el modal de edición
+
+**$addToSet - Agregar al array sin duplicados:**
+- `AgregarCategoriaRestaurante()` en `restaurante_service.go`:
+  ```go
+  "$addToSet": bson.M{"categorias": categoria}
+  ```
+  - Agrega categoría solo si no existe ya en el array
+  - `POST /restaurantes/{id}/categorias`
+  - **UI:** Campo de texto + botón "Add" en sección "Manage Categories" del modal
 
 **$unwind - Desанида array:**
 - Usado en `TopPlatillos()` para desunitar items
@@ -524,7 +562,8 @@ Pipeline:
 
 | Criterio | Requerimiento | Status | Puntos |
 |----------|---|---|---|
-| **Índices** | 4 tipos diversos | ✅ 4/4 CUMPLIDO | - |
+| **Índices** | 5 tipos diversos | ✅ 5/5 CUMPLIDO | - |
+| **explain()** | Validación query planner para los 5 índices | ✅ IMPLEMENTADO | - |
 | **CRUD - Embebidos** | Documentos embebidos | ✅ 3 tipos implementados | - |
 | **CRUD - Referenciados** | Referencias entre colecciones | ✅ Múltiples lookups | - |
 | **CRUD - 1 o varios** | Crear uno o varios | ✅ CRUD + Bulk | - |
@@ -537,7 +576,7 @@ Pipeline:
 | **Volumen 50k docs** | Generación de datos masivos | ✅ Endpoint `/bulk/todo` | - |
 | **Agregaciones Simples** | Count, Distinct, etc. | ✅ Implementado | - |
 | **Agregaciones Complejas** | Pipelines $match, $group, $lookup, etc. | ✅ 2 pipelines complejas | - |
-| **Manejo Arrays** | $push, $unwind, etc. | ✅ Implementado | - |
+| **Manejo Arrays** | $push, $pull, $addToSet, $unwind | ✅ Implementado | - |
 | **Documentos Embebidos** | Manipulación de sub-documentos | ✅ Implementado | - |
 | **BULK Operations** | BulkWrite + 5 funciones | ✅ IMPLEMENTADO | **+5** |
 | **Frontend/HCI** | Interfaz amigable + 9 componentes | ✅ COMPLETAMENTE HECHO | **+10** |
